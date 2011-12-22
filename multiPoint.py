@@ -80,7 +80,7 @@ class multiPoint(object):
 
         return
 
-    def addProcessorSet(self, setName, nMembers, memberSizes, functionals):
+    def addProcessorSet(self, setName, nMembers, memberSizes):
 
         """
         Create a processor set. 
@@ -103,12 +103,6 @@ class multiPoint(object):
                 and each entry is the desired number of processors for that
                 member. 
 
-            functions, dictionary: A dictionary whose keys are the
-            functional list we expect. Each key must have an argument
-            of True or False. True indicates the values are DIFFERENT
-            on each group. False indicates they are the SAME on each group.
-            For a set with only 1 group, the value is meaningless
-
         Output Arguments:
         
             None
@@ -127,13 +121,57 @@ class multiPoint(object):
             # end if
         # end if
 
-        pSet = procSet(setName, nMembers, memberSizes, functionals, 
-                       self.setCount)
+        pSet = procSet(setName, nMembers, memberSizes, self.setCount)
 
         self.pSet[setName] = pSet
         self.setCount += 1
         self.cumSets.append(self.cumSets[-1] + pSet.nProc)
         return
+
+    def addFunctionals(self, setName, funcName, rank=0, unique=True):
+        """
+        Add a functional called 'funcName' to processor set
+        'setName'. Rank indicates whether the value is a vector or
+        scalar. Scalars have rank=0, vectors rank=1. These are the
+        only ranks supported. Unique is used to indicate whether each
+        member of a proc set generates a unique value and therefore
+        must be communicated to other members. Typically unique is
+        True, except for cases where they are known on all processors,
+        such as geometric thickness constraints
+
+        Input Arguments:
+            setName, str: The name of set to add functional to. Must have been 
+                          already added with addProcessorSet()
+            funcName, str: The (unique) name of the functional to add
+            
+        Optional Arguments: 
+            rank, integer:  Rank of the expected data. 0 for scalars, 1 for 
+                            vector. These are the only suppored ranks
+            unique, bool: True of data is unique to a member and therefore
+                          must be communicated. False if each member returns
+                          the same data
+                          """
+        # First check if setName is added:
+        assert setName in self.pSet.keys(), "setName has not been added with\
+ addProcessorSet"
+        
+        # Check that funcName is not ALREADY added:
+        assert funcName not in self.pSet[setName].functionals, "%s has\
+ already been added. Use another name" %(funcName)
+
+        # Check that rank is 0 or 1
+        rank = int(rank)
+        assert rank in [0,1], "Rank must be 0 for scalar or 1 for vector"
+
+        # Check unique:
+        unique = bool(unique)
+        assert unique in [True,False], "Unique must be True or False"
+
+        # Now that we've checked the data...add to appropriate procSet
+        self.pSet[setName]._addFunctional(funcName, rank, unique)
+
+        return
+        
 
     def createCommunicators(self):
         """
@@ -220,6 +258,12 @@ class multiPoint(object):
         large number of points
 
             Input Arguments: root_dir, str: Directory where folders are created
+
+            Output Arguments: A dictionary of all the created directories.
+                              Each dictionary entry has key defined by 
+                              'setName' and contains a list of size nMembers,
+                              each entry of which is the path to the created
+                              directory
             """
             
         if len(self.pSet) == 0: 
@@ -297,7 +341,6 @@ directories',comm=self.gcomm)
 
         return
 
-
     def fun_obj(self, x):
         """ This function is used to call the user specified "obj"
         functions, communicate the results, call the "objective"
@@ -333,12 +376,12 @@ directories',comm=self.gcomm)
                 for func in self.pSet[key].functionals:
                     
                     # Determine the rank of the func:
-                    r = numpy.rank(res[func])
+                    r = self.pSet[key].functionals[func]['rank']
                   
                     # Check to see if it needs tobe communicated:
-                    if self.pSet[key].functionals[func]: 
+                    if self.pSet[key].functionals[func]['unique']: 
                         if r == 0:
-                            val = numpy.zeros((self.pSet[key].nMembers))
+                            val = numpy.zeros(self.pSet[key].nMembers)
                         else:
                             val = numpy.zeros((self.pSet[key].nMembers,
                                                len(res[func])))
@@ -363,7 +406,7 @@ directories',comm=self.gcomm)
                         # end if
                     # end if
                 # end for
-                            
+
                 # Special case for fail. Simply logical OR over entire
                 # pSet gcomm:
                 setFunctionals['fail'] = self.pSet[key].gcomm.allreduce(
@@ -401,6 +444,8 @@ directories',comm=self.gcomm)
 
         # Save functionals
         self.functionals = self._complexifyFunctionals(functionals)
+        
+        print 'Fail in MP Objective:',functionals['fail']
 
         return f_obj, f_con, functionals['fail']
 
@@ -417,7 +462,7 @@ directories',comm=self.gcomm)
         for key in self.pSet.keys():
             if self.setFlags[key]: 
 
-                # Run "obj" funtion
+                # Run "sens" funtion
                 res = self.pSet[key].sensFunc(x, f_obj, f_con)
 
                 # First check to see if all the functionals were
@@ -438,27 +483,37 @@ directories',comm=self.gcomm)
 
                 # Next communicate the functions
                 for func in self.pSet[key].functionals:
+
+                    r = self.pSet[key].functionals[func]['rank']
+
                     # Check to see if it needs tobe communicated:
-                    tmp = numpy.atleast_1d(res[func]) # Array to send
-                    if self.pSet[key].functionals[func]: 
-                        val = numpy.zeros((self.pSet[key].nMembers, len(tmp)))
+
+                    if self.pSet[key].functionals[func]['unique']:
+                        if r == 0:
+                            val = numpy.zeros((self.pSet[key].nMembers, 
+                                               len(res[func])))
+                        else:
+                            val = numpy.zeros((self.pSet[key].nMembers,
+                                               res[func].shape[0],
+                                               res[func].shape[1]))
+                        # end if
 
                         for i in xrange(self.pSet[key].nMembers):
                             if self.pSet[key].groupID == i and \
                                     self.pSet[key].comm.rank == 0:
                                 val[i] = self.pSet[key].gcomm.bcast(
-                                    tmp,root=self.pSet[key].cumGroups[i])
+                                    res[func],root=self.pSet[key].cumGroups[i])
                             else:
                                 val[i] = self.pSet[key].gcomm.bcast(
                                     None,root=self.pSet[key].cumGroups[i])
                             # end if
                         # end for
                                 
-                        setDerivatives[func] = numpy.atleast_2d(val.squeeze())
+                        setDerivatives[func] = val
 
                     else: # Does not need to communicated...simply copy
                         if self.pSet[key].gcomm.rank == 0:
-                            setDerivatives[func] = tmp
+                            setDerivatives[func] = numpy.atleast_2d(res[func])
                         # end if
                     # end if
                 # end for
@@ -510,6 +565,7 @@ directories',comm=self.gcomm)
 
         g_obj = numpy.zeros(nDV)
         g_con = numpy.zeros((nCon, nDV))
+
         for key in self.functionals:
             if key != 'fail':
                 for i in xrange(len(self.functionals[key])):
@@ -553,7 +609,7 @@ class procSet(object):
     A container class to bundle information pretaining to a specific
     processor set. It is not intended to be used externally by a user
         """
-    def __init__(self, setName, nMembers, memberSizes, functionals, setCount):
+    def __init__(self, setName, nMembers, memberSizes, setCount):
         """
         Class creation
         """
@@ -561,9 +617,9 @@ class procSet(object):
         self.setName = setName
         self.nMembers = nMembers
         self.memberSizes = memberSizes
-        self.functionals = functionals
         self.nProc = numpy.sum(self.memberSizes)
         self.setID = setCount
+        self.functionals = {}
         self.gcomm = None
         self.objFunc = None
         self.sensFunc = None
@@ -571,6 +627,15 @@ class procSet(object):
         self.groupID = None
         self.groupFlags = None
         self.comm = None
+
+        return
+
+    def _addFunctional(self, funcName, rank, unique):
+        """ 
+        Add functinal. No error checking since this was done in MP class. 
+        """
+        
+        self.functionals[funcName] = {'rank':rank,'unique':unique}
 
         return
 
@@ -601,6 +666,8 @@ class procSet(object):
         self.cumGroups = cumGroups
         
         return
+
+
 
 #==============================================================================
 # mutliPoint Test
