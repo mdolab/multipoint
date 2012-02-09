@@ -234,12 +234,22 @@ class multiPoint(object):
 
         setComm = self.gcomm.Split(member_key)
 
+        if setComm.rank == 0:
+            print 'Rank, Comm size:',self.gcomm.rank, setComm.size
+
         # Set this new_comm into each pSet and let each procSet create
         # its own split:
         for key in self.pSet.keys():
             if setFlags[key]:
+
                 self.pSet[key].gcomm = setComm
+
+                if self.pSet[key].gcomm.rank == 0:
+                    print 'Rank, subComm size:',self.gcomm.rank, self.pSet[key].gcomm.size
                 self.pSet[key]._createCommunicators()
+
+                self.gcomm.barrier()
+
                 comm = self.pSet[key].comm
                 groupFlags = self.pSet[key].groupFlags
                 pt_id = self.pSet[key].groupID
@@ -418,6 +428,8 @@ directories',comm=self.gcomm)
         # (derivatives). We now broadcast the dictionaries so that the
         # values are known on all processors:
         functionals = {}
+
+        MPI.COMM_WORLD.barrier()
         for key in self.pSet.keys():
             if self.setFlags[key] and self.pSet[key].gcomm.rank == 0:
                 tmp = self.gcomm.bcast(setFunctionals,
@@ -437,16 +449,14 @@ directories',comm=self.gcomm)
                                                    op=MPI.LOR)
         
         # Call the objective function:
-        f_obj = self.objective(functionals)
+        f_obj = self.objective(functionals, True)
 
         # Call the constraint function:
-        f_con = self.constraints(functionals)
+        f_con = self.constraints(functionals, True)
 
         # Save functionals
         self.functionals = self._complexifyFunctionals(functionals)
         
-        print 'Fail in MP Objective:',functionals['fail']
-
         return f_obj, f_con, functionals['fail']
 
     def sens(self, x, f_obj, f_con):
@@ -573,9 +583,9 @@ directories',comm=self.gcomm)
                     self.functionals[key][i] += 1e-40j
 
                     d_obj_df = numpy.imag(self.objective(
-                            self.functionals))*1e40
+                            self.functionals, False))*1e40
                     d_con_df = numpy.imag(self.constraints(
-                            self.functionals))*1e40
+                            self.functionals, False))*1e40
 
                     self.functionals[key][i] = refVal
 
@@ -651,18 +661,29 @@ class procSet(object):
             cumGroups[i+1] = cumGroups[i] + self.memberSizes[i]
         # end for
 
-        # Determine the member_key for each processor
+
+        # Determine the member_key (m_key) for each processor
+            
+        m_key = None
         for i in xrange(self.nMembers):
             if self.gcomm.rank >= cumGroups[i] and \
                     self.gcomm.rank < cumGroups[i+1]:
-                member_key = i
+                m_key = i
             # end for
         # end for
+                
+        #if m_key is None:
+        #print '[%d] Split is Screwed!'%(MPI.COMM_WORLD.rank)
+        print '[%d] cumGroups:'%(MPI.COMM_WORLD.rank),cumGroups
+        print '[%d] nMmembers:'%(MPI.COMM_WORLD.rank),self.nMembers
+        print '[%d] Rank     :'%(MPI.COMM_WORLD.rank),self.gcomm.rank
+        print '[%d] Size     :'%(MPI.COMM_WORLD.rank),self.gcomm.size
 
-        self.comm = self.gcomm.Split(member_key)
+
+        self.comm = self.gcomm.Split(m_key)
         self.groupFlags = numpy.zeros(self.nMembers, bool)
-        self.groupFlags[member_key] = True
-        self.groupID = member_key
+        self.groupFlags[m_key] = True
+        self.groupID = m_key
         self.cumGroups = cumGroups
         
         return
