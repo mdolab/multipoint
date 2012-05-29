@@ -234,8 +234,8 @@ class multiPoint(object):
 
         setComm = self.gcomm.Split(member_key)
 
-        if setComm.rank == 0:
-            print 'Rank, Comm size:',self.gcomm.rank, setComm.size
+        #if setComm.rank == 0:
+        #    print 'Rank, Comm size:',self.gcomm.rank, setComm.size
 
         # Set this new_comm into each pSet and let each procSet create
         # its own split:
@@ -244,8 +244,8 @@ class multiPoint(object):
 
                 self.pSet[key].gcomm = setComm
 
-                if self.pSet[key].gcomm.rank == 0:
-                    print 'Rank, subComm size:',self.gcomm.rank, self.pSet[key].gcomm.size
+                #if self.pSet[key].gcomm.rank == 0:
+                #    print 'Rank, subComm size:',self.gcomm.rank, self.pSet[key].gcomm.size
                 self.pSet[key]._createCommunicators()
 
                 self.gcomm.barrier()
@@ -571,7 +571,7 @@ directories',comm=self.gcomm)
                 break
             # end if
         # end for
-        nCon = len(self.constraints(self.functionals))
+        nCon = len(self.constraints(self.functionals,False))
 
         g_obj = numpy.zeros(nDV)
         g_con = numpy.zeros((nCon, nDV))
@@ -579,6 +579,7 @@ directories',comm=self.gcomm)
         for key in self.functionals:
             if key != 'fail':
                 for i in xrange(len(self.functionals[key])):
+
                     refVal = self.functionals[key][i]
                     self.functionals[key][i] += 1e-40j
 
@@ -674,10 +675,10 @@ class procSet(object):
                 
         #if m_key is None:
         #print '[%d] Split is Screwed!'%(MPI.COMM_WORLD.rank)
-        print '[%d] cumGroups:'%(MPI.COMM_WORLD.rank),cumGroups
-        print '[%d] nMmembers:'%(MPI.COMM_WORLD.rank),self.nMembers
-        print '[%d] Rank     :'%(MPI.COMM_WORLD.rank),self.gcomm.rank
-        print '[%d] Size     :'%(MPI.COMM_WORLD.rank),self.gcomm.size
+        #print '[%d] cumGroups:'%(MPI.COMM_WORLD.rank),cumGroups
+        #print '[%d] nMmembers:'%(MPI.COMM_WORLD.rank),self.nMembers
+        #print '[%d] Rank     :'%(MPI.COMM_WORLD.rank),self.gcomm.rank
+        #print '[%d] Size     :'%(MPI.COMM_WORLD.rank),self.gcomm.size
 
 
         self.comm = self.gcomm.Split(m_key)
