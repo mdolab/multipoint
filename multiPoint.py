@@ -1,4 +1,4 @@
-#!/usr//bin/python
+#!/usr/bin/python
 """
 multiPoint.py -- A python utility for aiding complex multi-point optimizations
 

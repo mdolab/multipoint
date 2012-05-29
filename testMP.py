@@ -1,4 +1,4 @@
-#!/usr//bin/python
+#!/usr/bin/python
 """
 tempMP.py --- An example for using the multiPoint analysis module
 """
@@ -106,12 +106,19 @@ def group1_obj(x):
     # of values for g1_thickness. 
 
     g1_drag = x['v1'] ** 2 * (pt_id + 1)
-    g1_lift = x['v1'] * 2 * 3.14159 
+    g1_lift = x['v1'] * 2 * 3.14159 * (pt_id + 1)
     g1_thick = numpy.ones(5)
     
     comm_values = {'group1_lift': g1_lift,
                    'group1_drag': g1_drag,
-                   'group1_thickness': g1_thick}
+                   'group1_thickness': g1_thick,
+                   'fail':False}
+
+    # There is a special value in comm_values called 'fail' that can
+    # be used to indicate that the analysis did not produce a usable
+    # value. This is then allReduced with an MPI.or over all
+    # processorSets. 
+    
     return comm_values
 
 def group2_obj(x):
@@ -137,7 +144,7 @@ def group1_sens(x):
     # vectors and vectors like g1_thick are returned as matrices.
 
     g1_drag_deriv  = [2*x['v1']*(pt_id + 1),0]
-    g1_lift_deriv  = [2*3.14159, 0]
+    g1_lift_deriv  = [2*3.14159*(pt_id+1), 0]
     g1_thick_deriv = numpy.zeros(5,2)
 
     comm_values = {'group1_lift': g1_lift_deriv,
@@ -222,4 +229,10 @@ x = {}
 x['v1'] = 5
 x['v2'] = 2
 
-MP.fun_obj(x)
+obj_value, con_values, fail = MP.fun_obj(x)
+
+if MPI.COMM_WORLD.rank == 0:
+    print 'obj_value:',obj_value
+    print 'con_values:',con_values
+    print 'Fail Flag:',fail
+    
