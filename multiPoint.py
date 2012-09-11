@@ -364,12 +364,18 @@ directories',comm=self.gcomm)
 
                 # Run "obj" funtion
                 res = self.pSet[key].objFunc(x)
+                
+                # First check to see if anything is actually returned in the objFunc(x)
+                if res == None:
+                    print 'No values returned in objective function!'
+                    sys.exit(1)
 
                 # First check to see if all the functionals were
                 # computed that should have been
 
                 for func in self.pSet[key].functionals:
-                    assert func in res, 'Error! Missing functional %s.'% (func)
+                    errStr = 'Error! Missing functional %s.'% (func)
+                    assert func in res, errStr
                 # end for
 
                 # If the user has NOT supplied a fail flag, assume it
