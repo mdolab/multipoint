@@ -28,7 +28,6 @@ import sys, os, time
 # =============================================================================
 # External Python modules
 # =============================================================================
-
 import numpy
 
 # =============================================================================
@@ -257,10 +256,15 @@ class multiPoint(object):
         # end for
 
         self.setFlags = setFlags
+        
+        self.pSetRoot = {}
+        for key in self.pSet:
+            self.pSetRoot[key] = self.cumSets[self.pSet[key].setID]
+        # end if
 
         return comm, setComm, setFlags, groupFlags, pt_id
 
-    def createDirectories(self,root_dir):
+    def createDirectories(self, root_dir):
         """
         After all the processor sets have been added, we can create a
         separate output directory for each member in each set. This
