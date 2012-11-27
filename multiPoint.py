@@ -36,7 +36,7 @@ import numpy
 from mdo_import_helper import MPI, mpiPrint
 
 # =============================================================================
-# SUMB Class
+# MultiPoint Class
 # =============================================================================
 class multiPoint(object):
     
@@ -70,6 +70,8 @@ class multiPoint(object):
         self.setFlags = None
         self.constraints = None
         self.cumSets = [0]
+
+        self.callCounter = 0
 
         # User-specified functions for optimization 
         self.objective = None
@@ -361,6 +363,17 @@ directories',comm=self.gcomm)
         function and finally return the result to the calling optimizer
         """
 
+        # If evalAfterCount is set, fun_obj will only return nonzero  
+        # after callCounter >= evalAfterCount
+        if self.callCounter > 0 and self.callCounter < self.evalAfterCount:
+            self.callCounter += 1
+
+            f_obj = 0
+            f_con = numpy.zeros(self.numCon)
+            fail = 0
+            return f_obj, f_con, fail
+        # end if
+
         # Call all the obj functions and exchange values WITHIN each
         # proc set
         for key in self.pSet.keys():
@@ -463,9 +476,12 @@ directories',comm=self.gcomm)
 
         # Call the constraint function:
         f_con = self.constraints(functionals, True)
+        self.numCon = len(f_con)
 
         # Save functionals
         self.functionals = self._complexifyFunctionals(functionals)
+
+        self.callCounter += 1
         
         return f_obj, f_con, functionals['fail']
 
@@ -611,6 +627,16 @@ directories',comm=self.gcomm)
         # end for
 
         return g_obj, g_con, derivatives['fail']
+
+    def setEvalAfterCount(self, dvNum):
+        """
+        Designed for SNOPT gradient check, setting evalAfterCount will bypass 
+        all fun_obj calls (return 0s) until callCounter >= evalAfterCount
+        """
+
+        self.evalAfterCount = dvNum
+
+        return
 
     def _complexifyFunctionals(self, functionals):
         """ Convert functionals to complex type"""
