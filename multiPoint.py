@@ -72,6 +72,7 @@ class multiPoint(object):
         self.cumSets = [0]
 
         self.callCounter = 0
+        self.evalAfterCount = 0
 
         # User-specified functions for optimization 
         self.objective = None
