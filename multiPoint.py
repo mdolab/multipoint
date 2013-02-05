@@ -374,7 +374,7 @@ directories',comm=self.gcomm)
             fail = 0
             return f_obj, f_con, fail
         # end if
-
+        x = self.gcomm.bcast(x,root=0)
         # Call all the obj functions and exchange values WITHIN each
         # proc set
         for key in self.pSet.keys():
@@ -479,11 +479,15 @@ directories',comm=self.gcomm)
         f_con = self.constraints(functionals, True)
         self.numCon = len(f_con)
 
+        f_obj = self.gcomm.bcast(f_obj,root=0)
+        f_con = self.gcomm.bcast(f_con,root=0)
+
         # Save functionals
         self.functionals = self._complexifyFunctionals(functionals)
 
         self.callCounter += 1
         
+
         return f_obj, f_con, functionals['fail']
 
     def sens(self, x, f_obj, f_con):
@@ -494,6 +498,7 @@ directories',comm=self.gcomm)
         "constraint" functions. 
         """
 
+        x = self.gcomm.bcast(x,root=0)
         # Call all the sens functions and exchange values WITHIN each
         # proc set
         for key in self.pSet.keys():
@@ -626,7 +631,8 @@ directories',comm=self.gcomm)
                 # end for
             # end if
         # end for
-
+        g_con = self.gcomm.bcast(g_con,root=0)
+        g_obj = self.gcomm.bcast(g_obj,root=0)
         return g_obj, g_con, derivatives['fail']
 
     def setEvalAfterCount(self, dvNum):
