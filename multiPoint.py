@@ -23,7 +23,7 @@ __version__ = '$Revision: $'
 # =============================================================================
 # Standard Python modules
 # =============================================================================
-import sys, os, time
+import sys, os, types
 
 # =============================================================================
 # External Python modules
@@ -159,7 +159,7 @@ class multiPoint(object):
         
         # Check that funcName is not ALREADY added:
         assert funcName not in self.pSet[setName].functionals, "%s has\
- already been added. Use another name" %(funcName)
+ already been added. Use another name." %(funcName)
 
         # Check that rank is 0 or 1
         rank = int(rank)
@@ -173,7 +173,6 @@ class multiPoint(object):
         self.pSet[setName]._addFunctional(funcName, rank, unique)
 
         return
-        
 
     def createCommunicators(self):
         """
@@ -236,18 +235,12 @@ class multiPoint(object):
 
         setComm = self.gcomm.Split(member_key)
 
-        #if setComm.rank == 0:
-        #    print 'Rank, Comm size:',self.gcomm.rank, setComm.size
-
         # Set this new_comm into each pSet and let each procSet create
         # its own split:
         for key in self.pSet.keys():
             if setFlags[key]:
 
                 self.pSet[key].gcomm = setComm
-
-                #if self.pSet[key].gcomm.rank == 0:
-                #    print 'Rank, subComm size:',self.gcomm.rank, self.pSet[key].gcomm.size
                 self.pSet[key]._createCommunicators()
 
                 self.gcomm.barrier()
@@ -316,7 +309,10 @@ directories',comm=self.gcomm)
         Output Arguments:
             None
             """
-        
+
+        assert setName in self.pSet.keys(), "setName has not been added with\
+ addProcessorSet"
+        assert isinstance(func, types.FuntionType), "func must be a Python function."
         self.pSet[setName].objFunc = func
         
         return
@@ -333,7 +329,9 @@ directories',comm=self.gcomm)
         Output Arguments:
             None
             """
-        
+        assert setName in self.pSet.keys(), "setName has not been added with\
+ addProcessorSet"
+        assert isinstance(func, types.FuntionType), "func must be a Python function."
         self.pSet[setName].sensFunc = func
         
         return
@@ -343,9 +341,9 @@ directories',comm=self.gcomm)
         Set the user supplied function to compute the objective from
         the functionals
         """
-
+        assert isinstance(func, types.FuntionType), "func must be a Python function."
         self.objective = func
-
+        
         return
 
     def setConstraintsFunction(self, func):
@@ -353,7 +351,7 @@ directories',comm=self.gcomm)
         Set the user supplied function to compute the constraints from
         the functionals
         """
-
+        assert isinstance(func, types.FuntionType), "func must be a Python function."
         self.constraints = func
 
         return
@@ -374,6 +372,7 @@ directories',comm=self.gcomm)
             fail = 0
             return f_obj, f_con, fail
         # end if
+
         x = self.gcomm.bcast(x,root=0)
         # Call all the obj functions and exchange values WITHIN each
         # proc set
@@ -406,7 +405,6 @@ directories',comm=self.gcomm)
                 setFunctionals = {}                
 
                 # Next communicate the functions
-
                 for func in self.pSet[key].functionals:
                     
                     # Determine the rank of the func:
@@ -487,7 +485,6 @@ directories',comm=self.gcomm)
 
         self.callCounter += 1
         
-
         return f_obj, f_con, functionals['fail']
 
     def sens(self, x, f_obj, f_con):
