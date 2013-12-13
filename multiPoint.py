@@ -604,33 +604,35 @@ directories',comm=self.gcomm)
 
         g_obj = numpy.zeros(nDV)
         g_con = numpy.zeros((nCon, nDV))
-
+        iCount = 0
         for key in self.functionals:
             if key != 'fail':
                 for i in xrange(len(self.functionals[key])):
+                    if numpy.mod(gcomm.rank, gcomm.size) == iCount:
+                        refVal = self.functionals[key][i]
+                        self.functionals[key][i] += 1e-40j
 
-                    refVal = self.functionals[key][i]
-                    self.functionals[key][i] += 1e-40j
+                        d_obj_df = numpy.imag(self.objective(
+                                self.functionals, False))*1e40
+                        d_con_df = numpy.imag(self.constraints(
+                                self.functionals, False))*1e40
 
-                    d_obj_df = numpy.imag(self.objective(
-                            self.functionals, False))*1e40
-                    d_con_df = numpy.imag(self.constraints(
-                            self.functionals, False))*1e40
+                        self.functionals[key][i] = refVal
 
-                    self.functionals[key][i] = refVal
-
-                    g_obj += d_obj_df * derivatives[key][i, :]
-                    for j in xrange(len(d_con_df)):
-                        g_con[j, :] += d_con_df[j] * derivatives[key][i, :]
-                    # end for
-
-
+                        g_obj += d_obj_df * derivatives[key][i, :]
+                        for j in xrange(len(d_con_df)):
+                            g_con[j, :] += d_con_df[j] * derivatives[key][i, :]
+                        # end for
+                    # end if
+                    iCount += 1
                 # end for
             # end if
         # end for
-        g_con = self.gcomm.bcast(g_con,root=0)
-        g_obj = self.gcomm.bcast(g_obj,root=0)
-        return g_obj, g_con, derivatives['fail']
+        g_con_summed = numpy.zeros_like(g_con)
+        g_obj_summed = numpy.zeros_like(g_obj)
+        self.gcomm.Allreduce(g_obj, g_obj_summed, op=MPI.SUM)
+        self.gcomm.Allreduce(g_con, g_con_summed, op=MPI.SUM)
+        return g_obj_summed, g_con_summed, derivatives['fail']
 
     def setEvalAfterCount(self, dvNum):
         """
