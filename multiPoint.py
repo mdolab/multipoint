@@ -608,7 +608,7 @@ directories',comm=self.gcomm)
         for key in self.functionals:
             if key != 'fail':
                 for i in xrange(len(self.functionals[key])):
-                    if numpy.mod(gcomm.rank, gcomm.size) == iCount:
+                    if numpy.mod(iCount, self.gcomm.size) == self.gcomm.rank:
                         refVal = self.functionals[key][i]
                         self.functionals[key][i] += 1e-40j
 
