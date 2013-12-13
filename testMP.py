@@ -135,7 +135,7 @@ def group2_obj(x):
 # functionals with respect a set of design variables for each
 # processor set.
 
-def group1_sens(x):
+def group1_sens(x,obj,con):
 
     # We must evalue the sensitivity of the required functionals with
     # respect to our design variables. Note that the MP doesn't care
@@ -145,7 +145,7 @@ def group1_sens(x):
 
     g1_drag_deriv  = [2*x['v1']*(pt_id + 1),0]
     g1_lift_deriv  = [2*3.14159*(pt_id+1), 0]
-    g1_thick_deriv = numpy.zeros(5,2)
+    g1_thick_deriv = numpy.zeros([5,2])
 
     comm_values = {'group1_lift': g1_lift_deriv,
                    'group1_drag': g1_drag_deriv,
@@ -153,9 +153,9 @@ def group1_sens(x):
 
     return comm_values
 
-def group2_sens(x):
+def group2_sens(x,obj,con):
     
-    g1_drag_deriv  = [0, 3*x['v2']**2]
+    g2_drag_deriv  = [0, 3*x['v2']**2]
 
     
     comm_values = {'group2_drag': g2_drag_deriv}
@@ -236,3 +236,10 @@ if MPI.COMM_WORLD.rank == 0:
     print 'con_values:',con_values
     print 'Fail Flag:',fail
     
+g_obj, g_con, fail = MP.sens(x, obj_value, con_values)
+
+if MPI.COMM_WORLD.rank == 0:
+    print 'g_obj',g_obj
+    print 'g_con',g_con
+    print 'Fail Flag',fail
+

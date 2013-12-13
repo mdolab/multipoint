@@ -1,16 +1,15 @@
 #!/usr/bin/python
 """
-multiPointSparse.py -- A python utility for aiding complex multi-point
-optimizations -- designed to work specifically with pyOptSparse. 
+multiPoint.py -- A python utility for aiding complex multi-point optimizations
 
-Copyright (c) 2013 by Dr. G. K. W. Kenway
+Copyright (c) 2011 by Mr. G. K. W. Kenway
 All rights reserved. Not to be used for commercial purposes.
-Revision: 1.0   $Date: 12/06/2013$
+Revision: 1.0   $Date: 08/11/2011$
 
 
 Developers:
 -----------
-- Dr. G. K. W. Kenway
+- Mr. G. K. W. Kenway
 
 History
 -------
@@ -25,7 +24,6 @@ __version__ = '$Revision: $'
 # Standard Python modules
 # =============================================================================
 import sys, os, types
-from collections import OrderedDict
 
 # =============================================================================
 # External Python modules
@@ -35,84 +33,83 @@ import numpy
 # =============================================================================
 # Extension modules
 # =============================================================================
-from mpi4py import MPI
-
-# =============================================================================
-# Error Handling Class
-# =============================================================================
-
-class MPError(Exception):
-   def __init__(self, message):
-        msg = '\n+'+'-'*78+'+'+'\n' + '| multiPointSparse Error: '
-        i = 25
-        for word in message.split():
-            if len(word) + i +1 > 78: # Finish line and start new one
-                msg += ' '*(78-i)+'|\n| ' + word + ' '
-                i = 2 + len(word)+1
-            else:
-                msg += word + ' '
-                i += len(word)+1
-        msg += ' '*(79-i) + '|\n' + '+'+'-'*78+'+'+'\n'
-        print msg
+from mdo_import_helper import MPI, mpiPrint
 
 # =============================================================================
 # MultiPoint Class
 # =============================================================================
 class multiPoint(object):
+    
     """
-    Create the multiPoint class on the provided comm.
-        
-    Parameters
-    ----------
-    gcomm : MPI.Intracomm
-        Global MPI communicator from which all processor groups
-        are created. It is usually MPI_COMM_WORLD but may be 
-        another intraCommunicator that has already been created. 
+    multiPoint Class. 
 
-    Examples
-    --------
-    >>> MP = multiPointSparse.multiPoint(MPI.COMM_WORLD)
+    The is the main multiPoint analysis class. 
+    
     """
+    
     def __init__(self, gcomm):
-      
+
+        """
+        Create the multiPoint class.
+        
+        Input Arguments:
+
+            gcomm: Global MPI communicator from which all processor groups
+                   are created. It is usually MPI_COMM_WORLD but may be 
+                   another intraCommunicator that has already been created. 
+                
+        Output Arguments:
+            None
             
-        assert type(gcomm) == MPI.Intracomm
+            """
+        
         self.gcomm = gcomm
-        self.pSet = OrderedDict() 
+        self.pSet = {}          # Dict of the procSet definitions
+        self.setCount = 0
         self.objective = None
         self.setFlags = None
         self.constraints = None
+        self.cumSets = [0]
+
+        self.callCounter = 0
+        self.evalAfterCount = 0
 
         # User-specified functions for optimization 
-        self.userObjCon = None
+        self.objective = None
+        self.constraints = None
+        self.objective_sens = None
+        self.constraints_sens = None
 
         return
 
     def addProcessorSet(self, setName, nMembers, memberSizes):
-        """
 
-        A Processor set is defined as one or more groups of processors
-        that use the same obj() and sens() froutines.
+        """
+        Create a processor set. 
+
+        A Processor set is defined as 1 or more groups of processors
+        that produce the same functional data. For example, for a
+        multi-point aerodynamic optimization, you may which to run
+        analysis at 3 different Mach-Cl combinations. Since each
+        analysis produces the SAME functionals, say, CL and CD, these
+        groups can be considered as the same set. 
+
+        Input Arguments:
+            setName: A string name to identify this processor set
+
+            nMembers, integer: The number of members of this set. 
+
+            memberSizes, integer or list: The communicator sizes required for
+                each member. If it is an integer, they are taken to be the
+                same size. If it is a list, it MUST be of length nMembers, 
+                and each entry is the desired number of processors for that
+                member. 
+
+        Output Arguments:
         
-        Parameters
-        ----------
-        setName : str
-            Name of process set. Process set names must be unique
+            None
 
-        nMembers : int
-            Number of members in the set.
-
-        memberSizes : int, iteratable
-            Number of processors on each set. If an iteger is suppled all\
-            members use the same number of processors.\
-            If a list or array is provided, a different number of processors\
-            on each member can be specified. 
-
-        Examples
-        --------
-        >>> MP.addProcessorSet('cruise', 3, 32)
-        >>> MP.addProcessorSet('maneuver', 2, [10, 20])
-        """
+            """
 
         nMembers = int(nMembers)
         memberSizes = numpy.atleast_1d(memberSizes)
@@ -120,45 +117,83 @@ class multiPoint(object):
             memberSizes = numpy.ones(nMembers)*memberSizes[0]
         else:
             if len(memberSizes) != nMembers:
-                raise MPError('The suppliled memberSizes list is not the correct length')
+                print 'Error: The suppliled memberSizes list is not the\
+ correct length'
+                sys.exit(1)
             # end if
         # end if
 
-        self.pSet[setName] = procSet(setName, nMembers, memberSizes)
+        pSet = procSet(setName, nMembers, memberSizes, self.setCount)
+
+        self.pSet[setName] = pSet
+        self.setCount += 1
+        self.cumSets.append(self.cumSets[-1] + pSet.nProc)
+        return
+
+    def addFunctionals(self, setName, funcName, rank=0, unique=True):
+        """
+        Add a functional called 'funcName' to processor set
+        'setName'. Rank indicates whether the value is a vector or
+        scalar. Scalars have rank=0, vectors rank=1. These are the
+        only ranks supported. Unique is used to indicate whether each
+        member of a proc set generates a unique value and therefore
+        must be communicated to other members. Typically unique is
+        True, except for cases where they are known on all processors,
+        such as geometric thickness constraints
+
+        Input Arguments:
+            setName, str: The name of set to add functional to. Must have been 
+                          already added with addProcessorSet()
+            funcName, str: The (unique) name of the functional to add
+            
+        Optional Arguments: 
+            rank, integer:  Rank of the expected data. 0 for scalars, 1 for 
+                            vector. These are the only suppored ranks
+            unique, bool: True of data is unique to a member and therefore
+                          must be communicated. False if each member returns
+                          the same data
+                          """
+        # First check if setName is added:
+        assert setName in self.pSet.keys(), "setName has not been added with\
+ addProcessorSet"
+        
+        # Check that funcName is not ALREADY added:
+        assert funcName not in self.pSet[setName].functionals, "%s has\
+ already been added. Use another name." %(funcName)
+
+        # Check that rank is 0 or 1
+        rank = int(rank)
+        assert rank in [0,1], "Rank must be 0 for scalar or 1 for vector"
+
+        # Check unique:
+        unique = bool(unique)
+        assert unique in [True,False], "Unique must be True or False"
+
+        # Now that we've checked the data...add to appropriate procSet
+        self.pSet[setName]._addFunctional(funcName, rank, unique)
 
         return
 
     def createCommunicators(self):
         """
+        Create the split communicators and the required flags to
+        create a processor partition that has been specified by adding
+        processor groups
 
-        Create the communicators after all the procSets have been
-        added. All procSets MUST be added before this routine is
-        called.
+        Input Arguments:
+            None
 
-        Returns
-        -------
-        comm : MPI.Intracomm
-            This is the communicator for the member of the procSet. Basically,
-            this is the communciator that the (parallel) analyais should be
-            created on 
-        setComm : MPI.Intracomm
-            This is the communicator that spans the entire processor set. 
-        setFlags : dict
-            This is a dictionary whose entry for \"setName\", as specified in
-            addProcessorSet() is True on a processor belonging to that set. 
-        groupFlags : list
-            This is list is used to destinguish between members within
-            a processor set. This list of of length nMembers and the
-            ith entry is true for the ith group. 
-        ptID : int
-            This is the index of the group that this processor belongs to
+        Output Arguments:
+            comm, mpi intra communicator: The communicator for the processor
 
-        Examples
-        --------
-        >>> comm, setComm, setFlags, groupFlags, ptID = MP.createCommunicators()
-        >>> # The following will be true for all processors for the second member
-            # of the 'cruise' procSet'
-        >>> setFlags['cruise'] and groupFlags[1] == True
+            setFlags, dictionary: This is a dictionary whose entry for
+            "setName", as specified in addProcessorSet is true on a
+            processor belonging to that set. 
+
+            groupFlags, list: This is used to distinguish between
+            groups within a processor set. This list of of length
+            nMembers and the ith entry is true for the ith group. 
+
         """
 
         # First we determine the total number of required procs:
@@ -168,9 +203,10 @@ class multiPoint(object):
         # end if
 
         # Check the sizes
-        if nProc <> self.gcomm.size:
-            raise MPError('multiPoint must be called iwth EXACTLY\
- %d processors'% (nProc))
+        if nProc < self.gcomm.size or nProc > self.gcomm.size:
+            mpiPrint('Error: multiPoint must be called iwth EXACTLY\
+ %d processors'% (nProc), comm=self.gcomm)
+            sys.exit(1)
         # end if
 
         # Create a cumulative size array
@@ -224,39 +260,25 @@ class multiPoint(object):
 
         return comm, setComm, setFlags, groupFlags, pt_id
 
-    def createDirectories(self, rootDir):
+    def createDirectories(self, root_dir):
         """
-        This function must be called after all the procSets have been
-        added.  This can facilitate distingushing output files when
-        there are a large number of points
+        After all the processor sets have been added, we can create a
+        separate output directory for each member in each set. This
+        can facilitate distingushing output files when there are a
+        large number of points
 
-        Parameters
-        ----------
-        rootDir : str
-            Root path where directories are to be created
+            Input Arguments: root_dir, str: Directory where folders are created
 
-        Returns
-        -------
-        ptDirs : dict
-            A dictionary of all the created directories. Each dictionary
-            entry has key defined by 'setName' and contains a list of size
-            nMembers, each entry of which is the path to the created
-            directory
-                    
-        Examples
-        --------
-        >>> MP = multiPointSparse.multiPoint(MPI.COMM_WORLD)
-        >>> MP.addProcessorSet('cruise', 3, 32)
-        >>> MP.addProcessorSet('maneuver', 2, [10, 20])
-        >>> ptDirs = MP.createDirectories('/home/user/output/')
-        >>> ptDirs
-        {'cruise': ['/home/user/output/cruise_0','/home/user/output/cruise_1',
-                    '/home/user/output/cruise_2'],
-         'maneuver':['/home/user/output/maneuver_0','/home/user/output/maneuver_1']}
-         """
+            Output Arguments: A dictionary of all the created directories.
+                              Each dictionary entry has key defined by 
+                              'setName' and contains a list of size nMembers,
+                              each entry of which is the path to the created
+                              directory
+            """
             
-        if len(self.pSet) == 0 and self.gcomm.rank == 0:
-            print 'Warning: No processorSets added. Cannot create directories'
+        if len(self.pSet) == 0: 
+            mpiPrint('Warning: No processorSets added. Cannot create \
+directories',comm=self.gcomm)
             return
         # end if
 
@@ -275,88 +297,382 @@ class multiPoint(object):
                  
         return pt_dirs
 
-    def setProcSetObjFunc(self, setName, func):
+    def setObjFunc(self, setName, func):
         """
-        Set the python function handle to compute the functionals
+        Set the python function handle to compute the functionals expected
+        from the set definition
 
-        Parameters
-        ----------
-        setName : str
-            Name of set we are setting the function for
-        func : Python function
-            Python function handle 
+        Input Arguments:
+            setName: Name of set we are setting function for:
+            func: Python function
+
+        Output Arguments:
+            None
             """
-        
+
         assert setName in self.pSet.keys(), "setName has not been added with\
  addProcessorSet"
-        assert isinstance(func, types.FuntionType), "func must be a Python function."
+        assert isinstance(func, types.FunctionType), "func must be a Python function."
         self.pSet[setName].objFunc = func
         
         return
 
-    def setProcSetSensFunc(self, setName, func):
+    def setSensFunc(self, setName, func):
         """
-         Set the python function handle to compute the derivative of
-         the functionals
+        Set the python function handle to compute the sensitivity of
+        thefunctionals expected from the set definition
 
-        Parameters
-        ----------
-        setName : str
-            Name of set we are setting the function for
-        func : Python function
-            Python function handle 
+        Input Arguments:
+            setName: Name of set we are setting function for:
+            func: Python function
 
+        Output Arguments:
+            None
             """
-        
         assert setName in self.pSet.keys(), "setName has not been added with\
  addProcessorSet"
-        assert isinstance(func, types.FuntionType), "func must be a Python function."
-        self.pSet[setName].objFunc = func
+        assert isinstance(func, types.FunctionType), "func must be a Python function."
+        self.pSet[setName].sensFunc = func
         
         return
 
-    def setObjCon(self, func):
+    def setObjectiveFunction(self, func):
         """
-        Set the python function handle to compute the final objective
-        and constriaints that are combinations of the functionals.
-
-        Parameters
-        ----------
-        func : Python function
-            Python function handle 
-            """
-
-        assert isinstance(func, types.FuntionType), "func must be a Python function."
-        self.objcon = func
+        Set the user supplied function to compute the objective from
+        the functionals
+        """
+        assert isinstance(func, types.FunctionType), "func must be a Python function."
+        self.objective = func
         
+        return
+
+    def setConstraintsFunction(self, func):
+        """
+        Set the user supplied function to compute the constraints from
+        the functionals
+        """
+        assert isinstance(func, types.FunctionType), "func must be a Python function."
+        self.constraints = func
+
         return
 
     def fun_obj(self, x):
+        """ This function is used to call the user specified "obj"
+        functions, communicate the results, call the "objective"
+        function and finally return the result to the calling optimizer
+        """
+
+        # If evalAfterCount is set, fun_obj will only return nonzero  
+        # after callCounter >= evalAfterCount
+        if self.callCounter > 0 and self.callCounter < self.evalAfterCount:
+            self.callCounter += 1
+
+            f_obj = 0
+            f_con = numpy.zeros(self.numCon)
+            fail = 0
+            return f_obj, f_con, fail
+        # end if
+
+        x = self.gcomm.bcast(x,root=0)
+        # Call all the obj functions and exchange values WITHIN each
+        # proc set
+        for key in self.pSet.keys():
+            if self.setFlags[key]: 
+
+                # Run "obj" function
+                res = self.pSet[key].objFunc(x)
+                
+                # First check to see if anything is actually returned in the objFunc(x)
+                if res == None:
+                    print 'No values returned in objective function!'
+                    sys.exit(1)
+
+                # First check to see if all the functionals were
+                # computed that should have been
+
+                for func in self.pSet[key].functionals:
+                    errStr = 'Error! Missing functional %s.'% (func)
+                    assert func in res, errStr
+                # end for
+
+                # If the user has NOT supplied a fail flag, assume it
+                # has not failed:
+                if not 'fail' in res:
+                    res['fail'] = 0
+                # end if
+
+                # The final set of functionals for this set
+                setFunctionals = {}                
+
+                # Next communicate the functions
+                for func in self.pSet[key].functionals:
+                    
+                    # Determine the rank of the func:
+                    r = self.pSet[key].functionals[func]['rank']
+                  
+                    # Check to see if it needs tobe communicated:
+                    if self.pSet[key].functionals[func]['unique']: 
+                        if r == 0:
+                            val = numpy.zeros(self.pSet[key].nMembers)
+                        else:
+                            val = numpy.zeros((self.pSet[key].nMembers,
+                                               len(res[func])))
+                        # end if
+
+                        for i in xrange(self.pSet[key].nMembers):
+                            if self.pSet[key].groupID == i and \
+                                    self.pSet[key].comm.rank == 0:
+                                val[i] = self.pSet[key].gcomm.bcast(
+                                    res[func],root=self.pSet[key].cumGroups[i])
+                            else:
+                                val[i] = self.pSet[key].gcomm.bcast(
+                                    None,root=self.pSet[key].cumGroups[i])
+                            # end if
+                        # end for
+                                
+                        setFunctionals[func] = val
+
+                    else: # Does not need to communicated...simply copy
+                        if self.pSet[key].gcomm.rank == 0:
+                            setFunctionals[func] = numpy.atleast_1d(res[func])
+                        # end if
+                    # end if
+                # end for
+
+                # Special case for fail. Simply logical OR over entire
+                # pSet gcomm:
+                setFunctionals['fail'] = self.pSet[key].gcomm.allreduce(
+                    res['fail'],op=MPI.LOR)
+            # end if
+        # end for
+
+        # Now each set has a consistent set of functional
+        # (derivatives). We now broadcast the dictionaries so that the
+        # values are known on all processors:
+        functionals = {}
+
+        MPI.COMM_WORLD.barrier()
+        for key in self.pSet.keys():
+            if self.setFlags[key] and self.pSet[key].gcomm.rank == 0:
+                tmp = self.gcomm.bcast(setFunctionals,
+                                root=self.cumSets[self.pSet[key].setID])
+            else:
+                tmp = self.gcomm.bcast(None,
+                                root=self.cumSets[self.pSet[key].setID])
+            # end if
+
+            # Add in the functionals
+            functionals.update(tmp)
+        # end for
+
+        # Special case for or. Simply logical OR over entire
+        # MP gcomm
+        functionals['fail'] = self.gcomm.allreduce(setFunctionals['fail'],
+                                                   op=MPI.LOR)
+        
+        # Call the objective function:
+        f_obj = self.objective(functionals, True)
+
+        # Call the constraint function:
+        f_con = self.constraints(functionals, True)
+        self.numCon = len(f_con)
+
+        f_obj = self.gcomm.bcast(f_obj,root=0)
+        f_con = self.gcomm.bcast(f_con,root=0)
+
+        # Save functionals
+        self.functionals = self._complexifyFunctionals(functionals)
+
+        self.callCounter += 1
         
         return f_obj, f_con, functionals['fail']
 
     def sens(self, x, f_obj, f_con):
+        """ This function is used to call the user specified "sens"
+        functions and communicate the results. If the user has
+        specified a sensitivity of the objective, that will be
+        called...otherwise, we'll just CS over the "objective" and
+        "constraint" functions. 
+        """
 
+        x = self.gcomm.bcast(x,root=0)
+        # Call all the sens functions and exchange values WITHIN each
+        # proc set
+        for key in self.pSet.keys():
+            if self.setFlags[key]: 
+
+                # Run "sens" function
+                res = self.pSet[key].sensFunc(x, f_obj, f_con)
+
+                # First check to see if all the functionals were
+                # computed that should have been
+
+                for func in self.pSet[key].functionals:
+                    assert func in res, 'Error! Missing functional %s.'% (func)
+                # end for
+
+                # If the user has NOT supplied a fail flag, assume it
+                # has not failed:
+                if not 'fail' in res:
+                    res['fail'] = 0
+                # end if
+
+                # The final set of functionals for this set
+                setDerivatives = {}                
+
+                # Next communicate the functions
+                for func in self.pSet[key].functionals:
+
+                    r = self.pSet[key].functionals[func]['rank']
+
+                    # Check to see if it needs tobe communicated:
+
+                    if self.pSet[key].functionals[func]['unique']:
+                        if r == 0:
+                            val = numpy.zeros((self.pSet[key].nMembers, 
+                                               len(res[func])))
+                        else:
+                            val = numpy.zeros((self.pSet[key].nMembers,
+                                               res[func].shape[0],
+                                               res[func].shape[1]))
+                        # end if
+
+                        for i in xrange(self.pSet[key].nMembers):
+                            if self.pSet[key].groupID == i and \
+                                    self.pSet[key].comm.rank == 0:
+                                val[i] = self.pSet[key].gcomm.bcast(
+                                    res[func],root=self.pSet[key].cumGroups[i])
+                            else:
+                                val[i] = self.pSet[key].gcomm.bcast(
+                                    None,root=self.pSet[key].cumGroups[i])
+                            # end if
+                        # end for
+                                
+                        setDerivatives[func] = val
+
+                    else: # Does not need to communicated...simply copy
+                        if self.pSet[key].gcomm.rank == 0:
+                            setDerivatives[func] = numpy.atleast_2d(res[func])
+                        # end if
+                    # end if
+                # end for
+                            
+                # Special case for fail. Simply logical OR over entire
+                # pSet gcomm:
+                setDerivatives['fail'] = self.pSet[key].gcomm.allreduce(
+                    res['fail'],op=MPI.LOR)
+            # end if
+        # end for
+
+        # Now each set has a consistent set of functionals. We now
+        # broadcast the dictionaries so that the values are known on
+        # all processors:
+        derivatives = {}
+        for key in self.pSet.keys():
+            if self.setFlags[key] and self.pSet[key].gcomm.rank == 0:
+                tmp = self.gcomm.bcast(setDerivatives,
+                                root=self.cumSets[self.pSet[key].setID])
+            else:
+                tmp = self.gcomm.bcast(None,
+                                root=self.cumSets[self.pSet[key].setID])
+            # end if
+
+            # Add in the functionals
+            derivatives.update(tmp)
+        # end for
+
+        # Special case for or. Simply logical OR over entire
+        # MP gcomm
+        derivatives['fail'] = self.gcomm.allreduce(setDerivatives['fail'],
+                                                   op=MPI.LOR)
+        
+        # Now we have the derivative of each functional wrt each each
+        # design variable in "derivatives". We now must compute g_obj
+        # and g_con. This is a highly inefficient brute force complex
+        # step approximation. If the number of design variables and
+        # the number constraints are both less than say 1000, it
+        # should take less than a second, which is most likely
+        # acceptable.
+
+        for key in self.functionals:
+            if key != 'fail':
+                nDV = derivatives[key].shape[1]
+                break
+            # end if
+        # end for
+        nCon = len(self.constraints(self.functionals,False))
+
+        g_obj = numpy.zeros(nDV)
+        g_con = numpy.zeros((nCon, nDV))
+        iCount = 0
+        for key in self.functionals:
+            if key != 'fail':
+                for i in xrange(len(self.functionals[key])):
+                    if numpy.mod(iCount, self.gcomm.size) == self.gcomm.rank:
+                        refVal = self.functionals[key][i]
+                        self.functionals[key][i] += 1e-40j
+
+                        d_obj_df = numpy.imag(self.objective(
+                                self.functionals, False))*1e40
+                        d_con_df = numpy.imag(self.constraints(
+                                self.functionals, False))*1e40
+
+                        self.functionals[key][i] = refVal
+
+                        g_obj += d_obj_df * derivatives[key][i, :]
+                        for j in xrange(len(d_con_df)):
+                            g_con[j, :] += d_con_df[j] * derivatives[key][i, :]
+                        # end for
+                    # end if
+                    iCount += 1
+                # end for
+            # end if
+        # end for
+        g_con_summed = numpy.zeros_like(g_con)
+        g_obj_summed = numpy.zeros_like(g_obj)
+        self.gcomm.Allreduce(g_obj, g_obj_summed, op=MPI.SUM)
+        self.gcomm.Allreduce(g_con, g_con_summed, op=MPI.SUM)
         return g_obj_summed, g_con_summed, derivatives['fail']
 
+    def setEvalAfterCount(self, dvNum):
+        """
+        Designed for SNOPT gradient check, setting evalAfterCount will bypass 
+        all fun_obj calls (return 0s) until callCounter >= evalAfterCount
+        """
+
+        self.evalAfterCount = dvNum
+
+        return
+
+    def _complexifyFunctionals(self, functionals):
+        """ Convert functionals to complex type"""
+        
+        for key in functionals:
+            try:
+                functionals[key] = functionals[key].astype('D')
+            except:
+                pass
+            # end try
+        # end for
+
+        return functionals
 
 class procSet(object):
     """
     A container class to bundle information pretaining to a specific
     processor set. It is not intended to be used externally by a user
-    """
-    
-    def __init__(self, setName, nMembers, memberSizes):
         """
-        This class should not be used externally. No error checking is
-        performed since the multiPoint class should have already
-        checked the inputs.
+    def __init__(self, setName, nMembers, memberSizes, setCount):
+        """
+        Class creation
         """
 
         self.setName = setName
         self.nMembers = nMembers
         self.memberSizes = memberSizes
         self.nProc = numpy.sum(self.memberSizes)
+        self.setID = setCount
+        self.functionals = {}
         self.gcomm = None
         self.objFunc = None
         self.sensFunc = None
@@ -367,10 +683,18 @@ class procSet(object):
 
         return
 
-    def _createCommunicators(self):
+    def _addFunctional(self, funcName, rank, unique):
+        """ 
+        Add functinal. No error checking since this was done in MP class. 
         """
-        Once the comm for the procSet is determined, we can split up
-        this comm as well
+        
+        self.functionals[funcName] = {'rank':rank,'unique':unique}
+
+        return
+
+    def _createCommunicators(self):
+        """ Once the comm for the procSet is determined, we can split
+        up this comm as well
         """
         
         # Create a cumulative size array
@@ -380,7 +704,9 @@ class procSet(object):
             cumGroups[i+1] = cumGroups[i] + self.memberSizes[i]
         # end for
 
+
         # Determine the member_key (m_key) for each processor
+            
         m_key = None
         for i in xrange(self.nMembers):
             if self.gcomm.rank >= cumGroups[i] and \
@@ -389,6 +715,14 @@ class procSet(object):
             # end for
         # end for
                 
+        #if m_key is None:
+        #print '[%d] Split is Screwed!'%(MPI.COMM_WORLD.rank)
+        #print '[%d] cumGroups:'%(MPI.COMM_WORLD.rank),cumGroups
+        #print '[%d] nMmembers:'%(MPI.COMM_WORLD.rank),self.nMembers
+        #print '[%d] Rank     :'%(MPI.COMM_WORLD.rank),self.gcomm.rank
+        #print '[%d] Size     :'%(MPI.COMM_WORLD.rank),self.gcomm.size
+
+
         self.comm = self.gcomm.Split(m_key)
         self.groupFlags = numpy.zeros(self.nMembers, bool)
         self.groupFlags[m_key] = True
@@ -396,3 +730,12 @@ class procSet(object):
         self.cumGroups = cumGroups
         
         return
+
+
+
+#==============================================================================
+# mutliPoint Test
+#==============================================================================
+if __name__ == '__main__':
+    import testMP
+    
