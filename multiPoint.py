@@ -304,7 +304,7 @@ directories',comm=self.gcomm)
 
         Input Arguments:
             setName: Name of set we are setting function for:
-            func: Python funtion
+            func: Python function
 
         Output Arguments:
             None
@@ -312,7 +312,7 @@ directories',comm=self.gcomm)
 
         assert setName in self.pSet.keys(), "setName has not been added with\
  addProcessorSet"
-        assert isinstance(func, types.FuntionType), "func must be a Python function."
+        assert isinstance(func, types.FunctionType), "func must be a Python function."
         self.pSet[setName].objFunc = func
         
         return
@@ -324,14 +324,14 @@ directories',comm=self.gcomm)
 
         Input Arguments:
             setName: Name of set we are setting function for:
-            func: Python funtion
+            func: Python function
 
         Output Arguments:
             None
             """
         assert setName in self.pSet.keys(), "setName has not been added with\
  addProcessorSet"
-        assert isinstance(func, types.FuntionType), "func must be a Python function."
+        assert isinstance(func, types.FunctionType), "func must be a Python function."
         self.pSet[setName].sensFunc = func
         
         return
@@ -341,7 +341,7 @@ directories',comm=self.gcomm)
         Set the user supplied function to compute the objective from
         the functionals
         """
-        assert isinstance(func, types.FuntionType), "func must be a Python function."
+        assert isinstance(func, types.FunctionType), "func must be a Python function."
         self.objective = func
         
         return
@@ -351,7 +351,7 @@ directories',comm=self.gcomm)
         Set the user supplied function to compute the constraints from
         the functionals
         """
-        assert isinstance(func, types.FuntionType), "func must be a Python function."
+        assert isinstance(func, types.FunctionType), "func must be a Python function."
         self.constraints = func
 
         return
@@ -379,7 +379,7 @@ directories',comm=self.gcomm)
         for key in self.pSet.keys():
             if self.setFlags[key]: 
 
-                # Run "obj" funtion
+                # Run "obj" function
                 res = self.pSet[key].objFunc(x)
                 
                 # First check to see if anything is actually returned in the objFunc(x)
@@ -501,7 +501,7 @@ directories',comm=self.gcomm)
         for key in self.pSet.keys():
             if self.setFlags[key]: 
 
-                # Run "sens" funtion
+                # Run "sens" function
                 res = self.pSet[key].sensFunc(x, f_obj, f_con)
 
                 # First check to see if all the functionals were
