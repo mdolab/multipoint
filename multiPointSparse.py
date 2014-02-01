@@ -81,6 +81,7 @@ class multiPoint(object):
         assert type(gcomm) == MPI.Intracomm
         self.gcomm = gcomm
         self.pSet = OrderedDict() 
+        self.dummyPSet = set()
         self.objective = None
         self.setFlags = None
         self.constraints = None
@@ -118,17 +119,22 @@ class multiPoint(object):
         >>> MP.addProcessorSet('maneuver', 2, [10, 20])
         """
 
-        nMembers = int(nMembers)
-        memberSizes = numpy.atleast_1d(memberSizes)
-        if len(memberSizes) == 1:
-            memberSizes = numpy.ones(nMembers)*memberSizes[0]
+        # Lets let the user explictly set nMembers to 0. This is
+        # equilivant to just turning off that proc set. 
+        if nMembers == 0:
+           self.dummyPSet.add(setName)
         else:
-            if len(memberSizes) != nMembers:
-                raise MPError('The suppliled memberSizes list is not the correct length')
-            # end if
-        # end if
+           nMembers = int(nMembers)
+           memberSizes = numpy.atleast_1d(memberSizes)
+           if len(memberSizes) == 1:
+               memberSizes = numpy.ones(nMembers)*memberSizes[0]
+           else:
+               if len(memberSizes) != nMembers:
+                   raise MPError('The suppliled memberSizes list is not the correct length')
+               # end if
+           # end if
 
-        self.pSet[setName] = procSet(setName, nMembers, memberSizes, len(self.pSet))
+           self.pSet[setName] = procSet(setName, nMembers, memberSizes, len(self.pSet))
 
         return
 
@@ -202,7 +208,6 @@ class multiPoint(object):
                 setFlags[self.pSet[key].setName] = False
             # end if
         # end for
-
         setComm = self.gcomm.Split(member_key)
 
         # Set this new_comm into each pSet and let each procSet create
@@ -222,6 +227,10 @@ class multiPoint(object):
         # end for
 
         self.setFlags = setFlags
+
+        # Now just append the dummy procSets:
+        for key in self.dummyPSet:
+           self.setFlags[key] = False
         
         self.pSetRoot = {}
         for key in self.pSet:
