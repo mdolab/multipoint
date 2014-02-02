@@ -1,12 +1,10 @@
 #!/usr/bin/python
 """
-multiPointSparse.py -- A python utility for aiding complex multi-point
+multiPointSparse.py -- A python utility for aiding complicated multi-point
 optimizations -- designed to work specifically with pyOptSparse. 
 
 Copyright (c) 2013 by Dr. G. K. W. Kenway
 All rights reserved. Not to be used for commercial purposes.
-Revision: 1.0   $Date: 12/06/2013$
-
 
 Developers:
 -----------
@@ -14,55 +12,89 @@ Developers:
 
 History
 -------
-v. 1.0  - First implementatino
-'''
-
-__version__ = '$Revision: $'
-
+v. 1.0  - First implementation
 """
-
+from __future__ import print_function 
 # =============================================================================
-# Standard Python modules
+# Imports
 # =============================================================================
-import sys, os, types, copy
+import os
+import types
+import copy
 from collections import OrderedDict
-
-# =============================================================================
-# External Python modules
-# =============================================================================
 import numpy
-
-# =============================================================================
-# Extension modules
-# =============================================================================
-from mdo_import_helper import MPI, mpiPrint
+from mpi4py import MPI
 
 # =============================================================================
 # Error Handling Class
 # =============================================================================
-
 class MPError(Exception):
-   def __init__(self, message):
-      """
-      Format the errro message in a box to make it clear  this
-      was a expliclty raised exception.
-      """
-      msg = '\n+'+'-'*78+'+'+'\n' + '| multiPointSparse Error: '
-      i = 25
-      for word in message.split():
-         if len(word) + i +1 > 78: # Finish line and start new one
-            msg += ' '*(78-i)+'|\n| ' + word + ' '
-            i = 2 + len(word)+1
-         else:
-            msg += word + ' '
-            i += len(word)+1
-         msg += ' '*(79-i) + '|\n' + '+'+'-'*78+'+'+'\n'
-         print msg
+    def __init__(self, message):
+        """
+        Format the error message in a box to make it clear this
+        was a expliclty raised exception.
+        """
+        msg = '\n+'+'-'*78+'+'+'\n' + '| multiPointSparse Error: '
+        i = 25
+        for word in message.split():
+            if len(word) + i +1 > 78: # Finish line and start new one
+                msg += ' '*(78-i)+'|\n| ' + word + ' '
+                i = 2 + len(word)+1
+            else:
+                msg += word + ' '
+                i += len(word)+1
+            msg += ' '*(79-i) + '|\n' + '+'+'-'*78+'+'+'\n'
+        print(msg)
+        Exception.__init__()
+
+# =============================================================================
+# Utility create groups function
+# =============================================================================
+
+def createGroups(sizes, comm):
+    """
+    Create groups takes a list of sizes, and creates new MPI
+    communicators coorsponding to those sizes. This is typically used
+    for generating the communicators for an aerostructural analysis. 
+
+    Parameters
+    ----------
+    sizes : list or array
+        List or integer array of the sizes of each split comm
+    comm : MPI intracomm
+        The communicator to split. comm.size must equal sum(sizes)
+        """
+
+    nGroups = len(sizes)
+    nProc_total  = sum(sizes)
+    if not(comm.size == nProc_total):
+        raise MPError('Cannot split comm. Comm has %d processors, but\
+        requesting to split into %d.'%(comm.size, nProc_total))
+
+    # Create a cumulative size array
+    cumGroups = [0]*(nGroups+1)
+    cumGroups[0] = 0   
+
+    for igroup in xrange(nGroups):
+        cumGroups[igroup+1] = cumGroups[igroup] + sizes[igroup]
+
+    # Determine the member_key for each processor
+    for igroup in xrange(nGroups):
+        if comm.rank >= cumGroups[igroup] and \
+               comm.rank < cumGroups[igroup+1]:
+            member_key = igroup
+
+    new_comm = comm.Split(member_key)
+
+    flags = [False]*nGroups
+    flags[member_key] = True
+
+    return new_comm, flags
 
 # =============================================================================
 # MultiPoint Class
 # =============================================================================
-class multiPoint(object):
+class multiPointSparse(object):
     """
     Create the multiPoint class on the provided comm.
         
@@ -75,29 +107,102 @@ class multiPoint(object):
 
     Examples
     --------
+    We will setup a multipoint problem with two procSets: a 'cruise'
+    set with 3 members and 32 procs each, and a maneuver set with two
+    members with 10 and 20 procs respectively. Our script will have to
+    define 5 python functions:
+
+    #. Evaluate functions for cruise::
+    
+         def cruiseObj(x):
+             funcs = {} # Fill up with functions
+             ...
+             return funcs
+
+    #. Evaluate functions for maneuver::
+
+         def maneuverObj(x):
+             funcs = {} # Fill up with functions
+             ...
+             return funcs
+
+    #. Evaluate function sensitivity for cruise::
+
+         def cruiseSens(x, fobj, fcon):
+             funcSens = {}
+             ...
+             return funcSens
+
+    #. Evaluate function sensitivity for cruise::
+
+         def maneuverSens(x, fobj, fcon):
+             funcSens = {}
+             ...
+             return funcSens
+
+    #. Function to compute addition functions::
+
+
+        def objCon(funcs):
+             funcs['new_func'] = combination_of_funcs
+             ...
+             return funcs
+    
     >>> MP = multiPointSparse.multiPoint(MPI.COMM_WORLD)
+    >>> MP.addProcessorSet('cruise', 3, 32)
+    >>> MP.addProcessorSet('maneuver', 2, [10, 20])
+    >>> # Possibly create directories
+    >>> ptDirs = MP.createDirectories('/home/user/output/')
+    >>> # Get the communicators and flags
+    >>> comm, setComm, setFlags, groupFlags, ptID = MP.createCommunicators()
+    >>> # Setup problems and python functions
+    >>> ....
+    >>> MP.setProcSetObjFunc('cruise', cruiseObj)
+    >>> MP.setProcSetObjFunc('maneuver', maneuverObj)
+    >>> MP.setProcSetSensFunc('cruise', cruiseSens)
+    >>> MP.setProcSetSensFunc('maneuver', maneuverSens)
+    >>> MP.setObjCon(objCon)
+    >>> # Create optimization problem using MP.obj
+    >>> optProb = Optimization('opt', MP.obj)
+    >>> # Setup optimization problem
+    >>> # MP needs the optProb after everything is setup.
+    >>> MP.setOptProb(optProb)
+    >>> # Create optimizer and use MP.sens for the sensitivity function on opt call
+    >>> snopt(optProb, sens=MP.sens, ...)
+
+    Notes
+    -----
+    multiPointSparse requires useGroups=True (default) when creating
+    the optProb (Optimization instance). 
     """
     def __init__(self, gcomm):
         assert type(gcomm) == MPI.Intracomm
         self.gcomm = gcomm
-        self.pSet = OrderedDict() 
-        self.dummyPSet = set()
+        self.pSet = OrderedDict()
+        self.pSetRoot = None
         self.objective = None
         self.setFlags = None
         self.constraints = None
         self.optProb = None
         self.cumSets = [0]
         self.commPattern = None
-        # User-specified functions for optimization 
+        # User-specified function
         self.userObjCon = None
 
-        return
+        # Information used for determining keys for CS loop
+        self.conKeys = None
+        self.funcs = None
+        self.inputKeys = None
+        self.outputKeys = None
+        self.passThroughKeys = None
 
     def addProcessorSet(self, setName, nMembers, memberSizes):
         """
-
         A Processor set is defined as one or more groups of processors
-        that use the same obj() and sens() froutines.
+        that use the same obj() and sens() froutines. Members of
+        processor sets typically, but not necessairly, return the same
+        number of functions. In all cases, the function names must be
+        unique. 
         
         Parameters
         ----------
@@ -119,28 +224,20 @@ class multiPoint(object):
         >>> MP.addProcessorSet('maneuver', 2, [10, 20])
         """
 
-        # Lets let the user explictly set nMembers to 0. This is
-        # equilivant to just turning off that proc set. 
-        if nMembers == 0:
-           self.dummyPSet.add(setName)
+        nMembers = int(nMembers)
+        memberSizes = numpy.atleast_1d(memberSizes)
+        if len(memberSizes) == 1:
+            memberSizes = numpy.ones(nMembers)*memberSizes[0]
         else:
-           nMembers = int(nMembers)
-           memberSizes = numpy.atleast_1d(memberSizes)
-           if len(memberSizes) == 1:
-               memberSizes = numpy.ones(nMembers)*memberSizes[0]
-           else:
-               if len(memberSizes) != nMembers:
-                   raise MPError('The suppliled memberSizes list is not the correct length')
-               # end if
-           # end if
+            if len(memberSizes) != nMembers:
+                raise MPError('The suppliled memberSizes list is not \
+ the correct length')
 
-           self.pSet[setName] = procSet(setName, nMembers, memberSizes, len(self.pSet))
-
-        return
+        self.pSet[setName] = procSet(setName, nMembers, memberSizes,
+                                     len(self.pSet))
 
     def createCommunicators(self):
         """
-
         Create the communicators after all the procSets have been
         added. All procSets MUST be added before this routine is
         called.
@@ -173,77 +270,65 @@ class multiPoint(object):
 
         # First we determine the total number of required procs:
         nProc = 0
-        for setName in self.pSet.keys():
+        for setName in self.pSet:
             nProc += self.pSet[setName].nProc
-        # end if
 
         # Check the sizes
         if nProc < self.gcomm.size or nProc > self.gcomm.size:
-            mpiPrint('Error: multiPoint must be called iwth EXACTLY\
- %d processors'% (nProc), comm=self.gcomm)
-            sys.exit(1)
-        # end if
+            raise MPError('multiPointSparse must be called iwth EXACTLY\
+ %d processors'% (nProc))
 
         # Create a cumulative size array
         setCount = len(self.pSet)
         setSizes = numpy.zeros(setCount)
-        for setName in self.pSet.keys():
+        for setName in self.pSet:
             setSizes[self.pSet[setName].setID] = self.pSet[setName].nProc
-        # end if
         
         cumSets = numpy.zeros(setCount+1,'intc')
-        for i in xrange(setCount):
+        for i in range(setCount):
             cumSets[i+1] = cumSets[i] + setSizes[i]
-        # end for
 
         setFlags = {}
 
         # Determine the member_key for each processor
-        for key in self.pSet.keys():
+        for key in self.pSet:
             if self.gcomm.rank >= cumSets[self.pSet[key].setID] and \
                     self.gcomm.rank < cumSets[self.pSet[key].setID+1]:
-                member_key = self.pSet[key].setID
+                memberKey = self.pSet[key].setID
                 setFlags[self.pSet[key].setName] = True
             else:
                 setFlags[self.pSet[key].setName] = False
-            # end if
-        # end for
-        setComm = self.gcomm.Split(member_key)
+
+        setComm = self.gcomm.Split(memberKey)
 
         # Set this new_comm into each pSet and let each procSet create
         # its own split:
-        for key in self.pSet.keys():
+        for key in self.pSet:
             if setFlags[key]:
 
                 self.pSet[key].gcomm = setComm
-                self.pSet[key]._createCommunicators()
+                self.pSet[key].createCommunicators()
 
                 self.gcomm.barrier()
 
                 comm = self.pSet[key].comm
                 groupFlags = self.pSet[key].groupFlags
-                pt_id = self.pSet[key].groupID
-            # end if
-        # end for
+                ptID = self.pSet[key].groupID
 
         self.setFlags = setFlags
-
-        # Now just append the dummy procSets:
-        for key in self.dummyPSet:
-           self.setFlags[key] = False
         
         self.pSetRoot = {}
         for key in self.pSet:
             self.pSetRoot[key] = cumSets[self.pSet[key].setID]
-        # end if
 
-        return comm, setComm, setFlags, groupFlags, pt_id
+        return comm, setComm, setFlags, groupFlags, ptID
 
     def createDirectories(self, rootDir):
         """
-        This function must be called after all the procSets have been
-        added.  This can facilitate distingushing output files when
-        there are a large number of points
+        This function can be called only after all the procSets have
+        been added. This can facilitate distingushing output files
+        when there are a large number of procSets and/or members of
+        procSets.
 
         Parameters
         ----------
@@ -271,29 +356,24 @@ class multiPoint(object):
          """
             
         if len(self.pSet) == 0: 
-            mpiPrint('Warning: No processorSets added. Cannot create \
-directories',comm=self.gcomm)
             return
-        # end if
 
-        pt_dirs = {}
-        for key in self.pSet.keys():
-            pt_dirs[key] = []
-            for i in xrange(self.pSet[key].nMembers):
-                dir_name = root_dir + '/%s_%d'%(self.pSet[key].setName,i)
-                pt_dirs[key].append(dir_name)
+        ptDirs = {}
+        for key in self.pSet:
+            ptDirs[key] = []
+            for i in range(self.pSet[key].nMembers):
+                dirName = rootDir + '/%s_%d'% (self.pSet[key].setName, i)
+                ptDirs[key].append(dirName)
 
-                if self.gcomm.rank == 0: # Only global root proc makes directories
-                    os.system('mkdir -p %s'%(dir_name))
-                # end if
-            # end for
-        # end for
+                if self.gcomm.rank == 0: # Only global root proc makes
+                                         # directories
+                    os.system('mkdir -p %s'%(dirName))
                  
-        return pt_dirs
+        return ptDirs
 
     def setProcSetObjFunc(self, setName, func):
         """
-        Set the python function handle to compute the functionals
+        Set a single python function handle to compute the functionals
 
         Parameters
         ----------
@@ -302,18 +382,17 @@ directories',comm=self.gcomm)
         func : Python function
             Python function handle 
             """
-        
-        assert setName in self.pSet.keys(), "setName has not been added with\
- addProcessorSet"
-        assert isinstance(func, types.FunctionType), "func must be a Python function."
-        self.pSet[setName].objFunc = func
-        
-        return
+        if setName not in self.pSet:
+            raise MPError("\'setName\' has not been added with addProcessorSet")
+        if not isinstance(func, types.FunctionType):
+            raise MPError('func must be a Python function handle.')
 
+        self.pSet[setName].objFunc = [func]
+        
     def setProcSetSensFunc(self, setName, func):
         """
-         Set the python function handle to compute the derivative of
-         the functionals
+        Set the python function handle to compute the derivative of
+        the functionals
 
         Parameters
         ----------
@@ -323,14 +402,51 @@ directories',comm=self.gcomm)
             Python function handle 
 
             """
-        
-        assert setName in self.pSet.keys(), "setName has not been added with\
- addProcessorSet"
-        assert isinstance(func, types.FunctionType), "func must be a Python function."
-        self.pSet[setName].sensFunc = func
-        
-        return
+        if setName not in self.pSet:
+            raise MPError("\'setName\' has not been added with addProcessorSet")
+        if not isinstance(func, types.FunctionType):
+            raise MPError('func must be a Python function handle.')
 
+        self.pSet[setName].sensFunc = [func]
+
+    def addProcSetObjFunc(self, setName, func):
+        """
+        Add an additional python function handle to compute the functionals
+
+        Parameters
+        ----------
+        setName : str
+            Name of set we are setting the function for
+        func : Python function
+            Python function handle 
+            """
+        if setName not in self.pSet:
+            raise MPError("\'setName\' has not been added with addProcessorSet")
+        if not isinstance(func, types.FunctionType):
+            raise MPError('func must be a Python function handle.')
+
+        self.pSet[setName].objFunc.append(func)
+        
+    def addProcSetSensFunc(self, setName, func):
+        """
+        Add an additional python function handle to compute the
+        derivative of the functionals
+
+        Parameters
+        ----------
+        setName : str
+            Name of set we are setting the function for
+        func : Python function
+            Python function handle 
+
+            """
+        if setName not in self.pSet:
+            raise MPError("\'setName\' has not been added with addProcessorSet")
+        if not isinstance(func, types.FunctionType):
+            raise MPError('func must be a Python function handle.')
+
+        self.pSet[setName].sensFunc.append(func)
+        
     def setObjCon(self, func):
         """
         Set the python function handle to compute the final objective
@@ -341,17 +457,16 @@ directories',comm=self.gcomm)
         func : Python function
             Python function handle 
             """
+        if not isinstance(func, types.FunctionType):
+            raise MPError('func must be a Python function handle.')
 
-        assert isinstance(func, types.FunctionType), "func must be a Python function."
         self.userObjCon = func
         
-        return
-
     def setOptProb(self, optProb):
         """
         Set the optimization problem that this multiPoint object will
         be used for. This is required for this class to know how to
-        assemble the gradients. The optProb must be "finished", that is
+        assemble the gradients. The optProb must be \'finished\', that is
         all variables and constraints have been added.
         
         Parameters
@@ -364,54 +479,57 @@ directories',comm=self.gcomm)
        
         conKeys = []
         for iCon in self.optProb.constraints:
-           if not self.optProb.constraints[iCon].linear:
-              conKeys.append(iCon)
+            if not self.optProb.constraints[iCon].linear:
+                conKeys.append(iCon)
         self.conKeys = set(conKeys)
         self.funcs = None
         self.inputKeys = None
         self.outputKeys = None
         self.passThroughKeys = None
         
-        return
-
     def obj(self, x):
-        for key in self.pSet.keys():
-           if self.setFlags[key]: 
-              # Run "obj" funtion to generate functionals
-              res = self.pSet[key].objFunc(x)
+        """
+        This is a built-in objective function that is designed to be
+        used directly as an objective function with pyOptSparse. The
+        user should not use this function directly, instead see the
+        class documentation for the inteded usage. 
 
-              assert res is not None,  "No return from user supplied\
- Objective function for pSet %s. Functionals must be returned in a\
- dictionary."%key
-
-              if 'fail' not in res:
-                 res['fail'] = False
-              # end if
-           # end if
-        # end for
+        Parameters
+        ----------
+        x : dict
+            Dictionary of variables returned from pyOptSparse
+        """
+        for key in self.pSet:
+            if self.setFlags[key]: 
+                # Run "obj" funtion to generate functionals
+                res = {}
+                for func in self.pSet[key].objFunc:
+                    tmp = func(x)
+                    assert tmp is not None, "No return from user supplied\
+                Objective function for pSet %s. Functionals must be returned in a\
+                          dictionary."% key
+                    res.update(tmp)
+                    
+                if 'fail' not in res:
+                    res['fail'] = False
  
         if self.commPattern is None:
             # On the first pass we need to determine the (one-time)
             # communication pattern
 
             # Send all the keys
-            allKeys = self.gcomm.allgather(res.keys())
+            allKeys = self.gcomm.allgather(list(res.keys()))
            
             self.commPattern = dict()  
 
-            for i in xrange(len(allKeys)): # This is looping over processors
+            for i in range(len(allKeys)): # This is looping over processors
                 for key in allKeys[i]: # This loops over keys from proc
                     if key not in self.commPattern:
-                       if key <> 'fail':
-                          # Only add on the lowest proc and ignore on higher
-                          # ones
-                          self.commPattern[key] = i
-                       # end if
-                    # end if
-                # end for
-            # end for
-        # end if
-          
+                        if key != 'fail':
+                            # Only add on the lowest proc and ignore on higher
+                            # ones
+                            self.commPattern[key] = i
+              
         # Perform Communication of functionals
         allFuncs = dict()
         for key in self.commPattern:
@@ -419,20 +537,19 @@ directories',comm=self.gcomm)
                 tmp = self.gcomm.bcast(res[key], root=self.commPattern[key])
             else:
                 tmp = self.gcomm.bcast(None, root=self.commPattern[key])
-            # end if
+
             allFuncs[key] = tmp
-        # end for
           
         # Simply do an allReduce on the fail flag:
-        fail = self.gcomm.allreduce(res['fail'],op=MPI.LOR)
+        fail = self.gcomm.allreduce(res['fail'], op=MPI.LOR)
         
         # Save the functions since we need these for the derivatives
         self.funcs = copy.deepcopy(allFuncs)
   
         # Determine which additional keys are necessary:
         funckeys = set(allFuncs.keys())
-        # Input Keys are the input variables to the obj/con functions
-        # Output Keys are the output variables from the obj/con functions
+        # Input Keys are the input variables to the objCon function
+        # Output Keys are the output variables from the objCon function
         self.inputKeys = funckeys.difference(self.conKeys)
         self.outputKeys = self.conKeys.difference(funckeys)
         self.passThroughKeys = funckeys.intersection(self.conKeys)
@@ -442,38 +559,47 @@ directories',comm=self.gcomm)
         return fObj, fCon, fail
     
     def sens(self, x, fObj, fCon):
-        for key in self.pSet.keys():
-           if self.setFlags[key]: 
-              # Run "obj" funtion to generate functionals
-              res = self.pSet[key].sensFunc(x, fObj, fCon)
+        """
+        This is a built-in sensitity function that is designed to be
+        used directly as a the sensitivty function with
+        pyOptSparse. The user should not use this function directly,
+        instead see the class documentation for the intended usage. 
 
-              assert res is not None,  "No return from user supplied\
+        Parameters
+        ----------
+        x : dict
+            Dictionary of variables returned from pyOptSparse
+        """
+        for key in self.pSet:
+            if self.setFlags[key]: 
+                # Run "sens" funtion to functionals sensitivities
+                res = {}
+                for func in self.pSet[key].sensFunc:
+                    tmp = func(x, fObj, fCon)
+                    assert tmp is not None,  "No return from user supplied\
  Sensitivity function for pSet %s. Functional derivatives must be returned in a\
- dictionary."%key
-
-              if 'fail' not in res:
-                 res['fail'] = False
-              # end if
-           # end if
-        # end for
+ dictionary."% key
+                    res.update(tmp)
+                    
+                if 'fail' not in res:
+                    res['fail'] = False
 
         # Perform Communication of functional (derivatives)
         funcSens = dict()
         for key in self.commPattern:
             if self.commPattern[key] == self.gcomm.rank:
-               tmp = self.gcomm.bcast(res[key], root=self.commPattern[key])
+                tmp = self.gcomm.bcast(res[key], root=self.commPattern[key])
             else:
-               tmp = self.gcomm.bcast(None, root=self.commPattern[key])
+                tmp = self.gcomm.bcast(None, root=self.commPattern[key])
  
             funcSens[key] = tmp
-        # end for
            
         # Simply do an allReduce on the fail flag:
         fail = self.gcomm.allreduce(res['fail'], op=MPI.LOR)
 
         # Return on everything but the root
-        if self.gcomm.rank <> 0:
-           return 
+        if self.gcomm.rank != 0:
+            return 
 
         # Now we have to perform the CS loop over the user-supplied
         # objCon function to generate the derivatives of our final
@@ -498,18 +624,15 @@ directories',comm=self.gcomm)
                 ndvs = ss[1]-ss[0]
                 ncon = self.optProb.constraints[oKey].ncon
                 gcon[oKey][dvSet] = numpy.zeros((ncon, ndvs))
-            # end for
-        # end for
 
         # Just complexify the keys to be petrurbed 'inputKeys'
         funcs = self._complexifyFuncs(self.funcs, self.inputKeys)
 
         # Setup zeros for the gobj and gcon returns
-        for dvSet in self.optProb.variables.keys():
+        for dvSet in self.optProb.variables:
             ss = self.optProb.dvOffset[dvSet]['n']                 
             ndvs = ss[1]-ss[0]
             gobj[dvSet] = numpy.zeros(ndvs)
-        # end for
 
         for oKey in self.outputKeys:
             gcon[oKey] = {}
@@ -519,8 +642,6 @@ directories',comm=self.gcomm)
                 ndvs = ss[1]-ss[0]
                 ncon = self.optProb.constraints[oKey].ncon
                 gcon[oKey][dvSet] = numpy.zeros((ncon, ndvs))
-            # end for
-        # end for
 
         for iKey in self.inputKeys: # Keys to peturb:
             if numpy.isscalar(funcs[iKey]):
@@ -528,108 +649,92 @@ directories',comm=self.gcomm)
                 obj, con = self.userObjCon(funcs)
                 funcs[iKey] -= 1e-40j
 
-                # Extract the derivative of output key variables 
-                for dvSet in funcSens[iKey].keys():
+                # Extract the derivative of objective
+                for dvSet in funcSens[iKey]:
                     deriv = numpy.imag(obj)/1e-40
                     gobj[dvSet] += deriv * funcSens[iKey][dvSet]
-                # end for
 
                 # Extract the derivative of output key variables 
                 for oKey in self.outputKeys: 
                     ncon = self.optProb.constraints[oKey].ncon
                     for dvSet in self.optProb.constraints[oKey].wrt:
-                        if dvSet in funcSens[iKey].keys():
-                            deriv = (numpy.imag(con[oKey])/1e-40).reshape((ncon,1))
-                            gcon[oKey][dvSet] += numpy.dot(deriv, numpy.atleast_2d(funcSens[iKey][dvSet]))
-                    # end for
-                # end for
+                        if dvSet in funcSens[iKey]:
+                            deriv = (numpy.imag(con[oKey])/1e-40).reshape(
+                                (ncon, 1))
+                            gcon[oKey][dvSet] += numpy.dot(
+                                deriv, numpy.atleast_2d(funcSens[iKey][dvSet]))
+
             else:
-                for i in xrange(len(funcs[iKey])):
+                for i in range(len(funcs[iKey])):
                     funcs[iKey][i] += 1e-40j
                     obj, con = self.userObjCon(funcs)
                     funcs[iKey][i] -= 1e-40j
 
                     # Extract the derivative of output key variables 
-                    for dvSet in funcSens[iKey].keys():
+                    for dvSet in funcSens[iKey]:
                         deriv = numpy.imag(obj)/1e-40
-                        gobj[dvSet] += deriv * funcSens[iKey][dvSet][i,:]
-                    # end for
+                        gobj[dvSet] += deriv * funcSens[iKey][dvSet][i, :]
 
                     # Extract the derivative of output key variables 
                     for oKey in self.outputKeys: 
                         ncon = self.optProb.constraints[oKey].ncon
                         for dvSet in self.optProb.constraints[oKey].wrt:
-                            if dvSet in funcSens[iKey].keys():
-                                deriv = (numpy.imag(con[oKey])/1e-40).reshape((ncon,1))
+                            if dvSet in funcSens[iKey]:
+                                deriv = (numpy.imag(con[oKey])/1e-40).reshape(
+                                    (ncon, 1))
                                 gcon[oKey][dvSet] += \
-                                    numpy.dot(deriv, numpy.atleast_2d(funcSens[iKey][dvSet][i,:]))
-                            # end if
-                        # end for
-                    # end for
-                # end for
-            # end if
-        # end for
+                                    numpy.dot(deriv, numpy.atleast_2d(
+                                    funcSens[iKey][dvSet][i, :]))
+
 
         return gobj, gcon, fail
 
     def _complexifyFuncs(self, funcs, keys):
         """ Convert functionals to complex type"""
-        
         for key in keys:
             if not numpy.isscalar(funcs[key]):
                 funcs[key] = numpy.array(funcs[key]).astype('D')
 
         return funcs
 
-
 class procSet(object):
     """
     A container class to bundle information pretaining to a specific
-    processor set. It is not intended to be used externally by a user
+    processor set. It is not intended to be used externally by a user.
+    No error checking is performed since the multiPoint class should
+    have already checked the inputs.
     """
-    
     def __init__(self, setName, nMembers, memberSizes, setID):
-        """
-        This class should not be used externally. No error checking is
-        performed since the multiPoint class should have already
-        checked the inputs.
-        """
-
         self.setName = setName
         self.nMembers = nMembers
         self.memberSizes = memberSizes
         self.nProc = numpy.sum(self.memberSizes)
         self.gcomm = None
-        self.objFunc = None
-        self.sensFunc = None
+        self.objFunc = []
+        self.sensFunc = []
         self.cumGroups = None
         self.groupID = None
         self.groupFlags = None
         self.comm = None
         self.setID = setID
-        return
 
-    def _createCommunicators(self):
+    def createCommunicators(self):
         """
         Once the comm for the procSet is determined, we can split up
         this comm as well
         """
-        
         # Create a cumulative size array
         cumGroups = numpy.zeros(self.nMembers + 1,'intc')
 
-        for i in xrange(self.nMembers):
+        for i in range(self.nMembers):
             cumGroups[i+1] = cumGroups[i] + self.memberSizes[i]
-        # end for
 
         # Determine the member_key (m_key) for each processor
         m_key = None
-        for i in xrange(self.nMembers):
-            if self.gcomm.rank >= cumGroups[i] and \
-                    self.gcomm.rank < cumGroups[i+1]:
+        for i in range(self.nMembers):
+            if (self.gcomm.rank >= cumGroups[i] and
+                self.gcomm.rank < cumGroups[i+1]):
                 m_key = i
-            # end for
-        # end for
                 
         self.comm = self.gcomm.Split(m_key)
         self.groupFlags = numpy.zeros(self.nMembers, bool)
@@ -637,4 +742,3 @@ class procSet(object):
         self.groupID = m_key
         self.cumGroups = cumGroups
         
-        return
