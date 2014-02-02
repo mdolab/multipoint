@@ -14,11 +14,13 @@ History
 -------
 v. 1.0  - First implementation
 """
+from __future__ import print_function 
 # =============================================================================
 # Imports
 # =============================================================================
-from __future__ import print_function 
-import os, types, copy
+import os
+import types
+import copy
 from collections import OrderedDict
 import numpy
 from mpi4py import MPI
@@ -42,8 +44,52 @@ class MPError(Exception):
                 msg += word + ' '
                 i += len(word)+1
             msg += ' '*(79-i) + '|\n' + '+'+'-'*78+'+'+'\n'
-            print(msg)
-            Exception.__init__()
+        print(msg)
+        Exception.__init__()
+
+# =============================================================================
+# Utility create groups function
+# =============================================================================
+
+def createGroups(sizes, comm):
+    """
+    Create groups takes a list of sizes, and creates new MPI
+    communicators coorsponding to those sizes. This is typically used
+    for generating the communicators for an aerostructural analysis. 
+
+    Parameters
+    ----------
+    sizes : list or array
+        List or integer array of the sizes of each split comm
+    comm : MPI intracomm
+        The communicator to split. comm.size must equal sum(sizes)
+        """
+
+    nGroups = len(sizes)
+    nProc_total  = sum(sizes)
+    if not(comm.size == nProc_total):
+        raise MPError('Cannot split comm. Comm has %d processors, but\
+        requesting to split into %d.'%(comm.size, nProc_total))
+
+    # Create a cumulative size array
+    cumGroups = [0]*(nGroups+1)
+    cumGroups[0] = 0   
+
+    for igroup in xrange(nGroups):
+        cumGroups[igroup+1] = cumGroups[igroup] + sizes[igroup]
+
+    # Determine the member_key for each processor
+    for igroup in xrange(nGroups):
+        if comm.rank >= cumGroups[igroup] and \
+               comm.rank < cumGroups[igroup+1]:
+            member_key = igroup
+
+    new_comm = comm.Split(member_key)
+
+    flags = [False]*nGroups
+    flags[member_key] = True
+
+    return new_comm, flags
 
 # =============================================================================
 # MultiPoint Class
@@ -121,8 +167,8 @@ class multiPointSparse(object):
     >>> # Setup optimization problem
     >>> # MP needs the optProb after everything is setup.
     >>> MP.setOptProb(optProb)
-    >>> # Create optimizer and Use MP.sens for the sensitivity function on opt call
-    >>> snopt(optProb, MP.sens, ...)
+    >>> # Create optimizer and use MP.sens for the sensitivity function on opt call
+    >>> snopt(optProb, sens=MP.sens, ...)
 
     Notes
     -----
@@ -149,8 +195,6 @@ class multiPointSparse(object):
         self.inputKeys = None
         self.outputKeys = None
         self.passThroughKeys = None
-
-        return
 
     def addProcessorSet(self, setName, nMembers, memberSizes):
         """
@@ -329,7 +373,7 @@ class multiPointSparse(object):
 
     def setProcSetObjFunc(self, setName, func):
         """
-        Set the python function handle to compute the functionals
+        Set a single python function handle to compute the functionals
 
         Parameters
         ----------
@@ -343,7 +387,7 @@ class multiPointSparse(object):
         if not isinstance(func, types.FunctionType):
             raise MPError('func must be a Python function handle.')
 
-        self.pSet[setName].objFunc = func
+        self.pSet[setName].objFunc = [func]
         
     def setProcSetSensFunc(self, setName, func):
         """
@@ -363,7 +407,45 @@ class multiPointSparse(object):
         if not isinstance(func, types.FunctionType):
             raise MPError('func must be a Python function handle.')
 
-        self.pSet[setName].sensFunc = func
+        self.pSet[setName].sensFunc = [func]
+
+    def addProcSetObjFunc(self, setName, func):
+        """
+        Add an additional python function handle to compute the functionals
+
+        Parameters
+        ----------
+        setName : str
+            Name of set we are setting the function for
+        func : Python function
+            Python function handle 
+            """
+        if setName not in self.pSet:
+            raise MPError("\'setName\' has not been added with addProcessorSet")
+        if not isinstance(func, types.FunctionType):
+            raise MPError('func must be a Python function handle.')
+
+        self.pSet[setName].objFunc.append(func)
+        
+    def addProcSetSensFunc(self, setName, func):
+        """
+        Add an additional python function handle to compute the
+        derivative of the functionals
+
+        Parameters
+        ----------
+        setName : str
+            Name of set we are setting the function for
+        func : Python function
+            Python function handle 
+
+            """
+        if setName not in self.pSet:
+            raise MPError("\'setName\' has not been added with addProcessorSet")
+        if not isinstance(func, types.FunctionType):
+            raise MPError('func must be a Python function handle.')
+
+        self.pSet[setName].sensFunc.append(func)
         
     def setObjCon(self, func):
         """
@@ -420,11 +502,14 @@ class multiPointSparse(object):
         for key in self.pSet:
             if self.setFlags[key]: 
                 # Run "obj" funtion to generate functionals
-                res = self.pSet[key].objFunc(x)
-
-                assert res is not None, "No return from user supplied\
- Objective function for pSet %s. Functionals must be returned in a\
- dictionary."% key
+                res = {}
+                for func in self.pSet[key].objFunc:
+                    tmp = func(x)
+                    assert tmp is not None, "No return from user supplied\
+                Objective function for pSet %s. Functionals must be returned in a\
+                          dictionary."% key
+                    res.update(tmp)
+                    
                 if 'fail' not in res:
                     res['fail'] = False
  
@@ -488,12 +573,13 @@ class multiPointSparse(object):
         for key in self.pSet:
             if self.setFlags[key]: 
                 # Run "obj" funtion to generate functionals
-                res = self.pSet[key].sensFunc(x, fObj, fCon)
-
-                assert res is not None,  "No return from user supplied\
+                for func in self.pSet[key].sensFunc:
+                    tmp = func(x, fObj, fCon)
+                    assert tmp is not None,  "No return from user supplied\
  Sensitivity function for pSet %s. Functional derivatives must be returned in a\
  dictionary."% key
-
+                    res.update(tmp)
+                    
                 if 'fail' not in res:
                     res['fail'] = False
 
@@ -623,8 +709,8 @@ class procSet(object):
         self.memberSizes = memberSizes
         self.nProc = numpy.sum(self.memberSizes)
         self.gcomm = None
-        self.objFunc = None
-        self.sensFunc = None
+        self.objFunc = []
+        self.sensFunc = []
         self.cumGroups = None
         self.groupID = None
         self.groupFlags = None
