@@ -572,7 +572,8 @@ class multiPointSparse(object):
         """
         for key in self.pSet:
             if self.setFlags[key]: 
-                # Run "obj" funtion to generate functionals
+                # Run "sens" funtion to functionals sensitivities
+                res = {}
                 for func in self.pSet[key].sensFunc:
                     tmp = func(x, fObj, fCon)
                     assert tmp is not None,  "No return from user supplied\
