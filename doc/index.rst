@@ -16,9 +16,9 @@ Contents:
 Introduction
 ============
 
-`multiPointSparse` is a helper module for doing multipoint optimizations
-Helo this is wierd.
-
+`multiPointSparse` is a helper module for doing multipoint
+optimizations. The documentaion for the main class module `multiPoint`
+is given below. 
 
 .. currentmodule:: multiPointSparse
 
