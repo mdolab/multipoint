@@ -21,7 +21,12 @@ from __future__ import print_function
 import os
 import types
 import copy
-from collections import OrderedDict
+try:
+    from collections import OrderedDict
+except ImportError:
+    # python 2.6 or earlier, use backport
+    # get using "pip install ordereddict"
+    from ordereddict import OrderedDict
 import numpy
 from mpi4py import MPI
 
@@ -43,9 +48,9 @@ class MPError(Exception):
             else:
                 msg += word + ' '
                 i += len(word)+1
-            msg += ' '*(79-i) + '|\n' + '+'+'-'*78+'+'+'\n'
+        msg += ' '*(79-i) + '|\n' + '+'+'-'*78+'+'+'\n'
         print(msg)
-        Exception.__init__()
+        Exception.__init__(self)
 
 # =============================================================================
 # Utility create groups function
@@ -236,7 +241,7 @@ class multiPointSparse(object):
             else:
                 if len(memberSizes) != nMembers:
                     raise MPError('The suppliled memberSizes list is not \
-     the correct length')
+     the correct length.')
 
             self.pSet[setName] = procSet(setName, nMembers, memberSizes,
                                          len(self.pSet))
@@ -280,8 +285,8 @@ class multiPointSparse(object):
 
         # Check the sizes
         if nProc < self.gcomm.size or nProc > self.gcomm.size:
-            raise MPError('multiPointSparse must be called iwth EXACTLY\
- %d processors'% (nProc))
+            raise MPError('multiPointSparse must be called with EXACTLY\
+ %d processors.'% (nProc))
 
         # Create a cumulative size array
         setCount = len(self.pSet)
@@ -391,7 +396,7 @@ class multiPointSparse(object):
             Python function handle 
             """
         if setName not in self.pSet:
-            raise MPError("\'setName\' has not been added with addProcessorSet")
+            raise MPError("\'setName\' has not been added with addProcessorSet.")
         if not isinstance(func, types.FunctionType):
             raise MPError('func must be a Python function handle.')
 
@@ -411,7 +416,7 @@ class multiPointSparse(object):
 
             """
         if setName not in self.pSet:
-            raise MPError("\'setName\' has not been added with addProcessorSet")
+            raise MPError("\'setName\' has not been added with addProcessorSet.")
         if not isinstance(func, types.FunctionType):
             raise MPError('func must be a Python function handle.')
 
@@ -429,7 +434,7 @@ class multiPointSparse(object):
             Python function handle 
             """
         if setName not in self.pSet:
-            raise MPError("\'setName\' has not been added with addProcessorSet")
+            raise MPError("\'setName\' has not been added with addProcessorSet.")
         if not isinstance(func, types.FunctionType):
             raise MPError('func must be a Python function handle.')
 
@@ -449,7 +454,7 @@ class multiPointSparse(object):
 
             """
         if setName not in self.pSet:
-            raise MPError("\'setName\' has not been added with addProcessorSet")
+            raise MPError("\'setName\' has not been added with addProcessorSet.")
         if not isinstance(func, types.FunctionType):
             raise MPError('func must be a Python function handle.')
 
@@ -564,6 +569,10 @@ class multiPointSparse(object):
 
         fObj, fCon = self.userObjCon(allFuncs)
 
+        fObj = self.gcomm.bcast(fObj,root=0)
+        fCon = self.gcomm.bcast(fCon,root=0)
+        fail = self.gcomm.bcast(fail,root=0)
+
         return fObj, fCon, fail
     
     def sens(self, x, fObj, fCon):
@@ -606,8 +615,8 @@ class multiPointSparse(object):
         fail = self.gcomm.allreduce(res['fail'], op=MPI.LOR)
 
         # Return on everything but the root
-        if self.gcomm.rank != 0:
-            return 
+        # if self.gcomm.rank != 0:
+        #     return 
 
         # Now we have to perform the CS loop over the user-supplied
         # objCon function to generate the derivatives of our final
@@ -659,8 +668,9 @@ class multiPointSparse(object):
 
                 # Extract the derivative of objective
                 for dvSet in funcSens[iKey]:
-                    deriv = numpy.imag(obj)/1e-40
-                    gobj[dvSet] += deriv * funcSens[iKey][dvSet]
+                    if dvSet in self.optProb.variables:
+                        deriv = numpy.imag(obj)/1e-40
+                        gobj[dvSet] += deriv * funcSens[iKey][dvSet]
 
                 # Extract the derivative of output key variables 
                 for oKey in self.outputKeys: 
@@ -680,8 +690,9 @@ class multiPointSparse(object):
 
                     # Extract the derivative of output key variables 
                     for dvSet in funcSens[iKey]:
-                        deriv = numpy.imag(obj)/1e-40
-                        gobj[dvSet] += deriv * funcSens[iKey][dvSet][i, :]
+                        if dvSet in self.optProb.variables:
+                            deriv = numpy.imag(obj)/1e-40
+                            gobj[dvSet] += deriv * funcSens[iKey][dvSet][i, :]
 
                     # Extract the derivative of output key variables 
                     for oKey in self.outputKeys: 
@@ -694,6 +705,9 @@ class multiPointSparse(object):
                                     numpy.dot(deriv, numpy.atleast_2d(
                                     funcSens[iKey][dvSet][i, :]))
 
+        gobj = self.gcomm.bcast(gobj,root=0)
+        gcon = self.gcomm.bcast(gcon,root=0)
+        fail = self.gcomm.bcast(fail,root=0)
 
         return gobj, gcon, fail
 
