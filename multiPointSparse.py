@@ -396,7 +396,7 @@ class multiPointSparse(object):
             Python function handle 
             """
         if setName not in self.pSet:
-            raise MPError("\'setName\' has not been added with addProcessorSet.")
+            raise MPError("'setName' has not been added with addProcessorSet.")
         if not isinstance(func, types.FunctionType):
             raise MPError('func must be a Python function handle.')
 
@@ -416,7 +416,7 @@ class multiPointSparse(object):
 
             """
         if setName not in self.pSet:
-            raise MPError("\'setName\' has not been added with addProcessorSet.")
+            raise MPError("'setName' has not been added with addProcessorSet.")
         if not isinstance(func, types.FunctionType):
             raise MPError('func must be a Python function handle.')
 
@@ -434,7 +434,7 @@ class multiPointSparse(object):
             Python function handle 
             """
         if setName not in self.pSet:
-            raise MPError("\'setName\' has not been added with addProcessorSet.")
+            raise MPError("'setName' has not been added with addProcessorSet.")
         if not isinstance(func, types.FunctionType):
             raise MPError('func must be a Python function handle.')
 
@@ -454,7 +454,7 @@ class multiPointSparse(object):
 
             """
         if setName not in self.pSet:
-            raise MPError("\'setName\' has not been added with addProcessorSet.")
+            raise MPError("'setName' has not been added with addProcessorSet.")
         if not isinstance(func, types.FunctionType):
             raise MPError('func must be a Python function handle.')
 
@@ -567,11 +567,12 @@ class multiPointSparse(object):
         self.outputKeys = self.conKeys.difference(funckeys)
         self.passThroughKeys = funckeys.intersection(self.conKeys)
 
-        fObj, fCon = self.userObjCon(allFuncs)
+        inputFuncs = self._extractKeys(allFuncs, self.inputKeys)
+        fObj, fCon = self.userObjCon(inputFuncs)
 
-        fObj = self.gcomm.bcast(fObj,root=0)
-        fCon = self.gcomm.bcast(fCon,root=0)
-        fail = self.gcomm.bcast(fail,root=0)
+        fObj = self.gcomm.bcast(fObj, root=0)
+        fCon = self.gcomm.bcast(fCon, root=0)
+        fail = self.gcomm.bcast(fail, root=0)
 
         return fObj, fCon, fail
     
@@ -614,10 +615,6 @@ class multiPointSparse(object):
         # Simply do an allReduce on the fail flag:
         fail = self.gcomm.allreduce(res['fail'], op=MPI.LOR)
 
-        # Return on everything but the root
-        # if self.gcomm.rank != 0:
-        #     return 
-
         # Now we have to perform the CS loop over the user-supplied
         # objCon function to generate the derivatives of our final
         # constraints with respect to the intermediate functionals
@@ -627,6 +624,9 @@ class multiPointSparse(object):
 
         # Complexify just the keys we need:
         funcs = self._complexifyFuncs(self.funcs, self.inputKeys)
+
+        # Extract just the input keys
+        funcs = self._extractKeys(funcs, self.inputKeys)
 
         # Just copy the passthrough keys:
         for pKey in self.passThroughKeys:
@@ -705,9 +705,9 @@ class multiPointSparse(object):
                                     numpy.dot(deriv, numpy.atleast_2d(
                                     funcSens[iKey][dvSet][i, :]))
 
-        gobj = self.gcomm.bcast(gobj,root=0)
-        gcon = self.gcomm.bcast(gcon,root=0)
-        fail = self.gcomm.bcast(fail,root=0)
+        gobj = self.gcomm.bcast(gobj, root=0)
+        gcon = self.gcomm.bcast(gcon, root=0)
+        fail = self.gcomm.bcast(fail, root=0)
 
         return gobj, gcon, fail
 
@@ -718,6 +718,13 @@ class multiPointSparse(object):
                 funcs[key] = numpy.array(funcs[key]).astype('D')
 
         return funcs
+
+    def _extractKeys(self, funcs, keys):
+        """Return a copy of the dict with just the keys given in keys"""
+        newDict = {}
+        for key in keys:
+            newDict[key] = copy.deepcopy(funcs[key])
+        return newDict
 
 class procSet(object):
     """
