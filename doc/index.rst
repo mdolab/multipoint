@@ -6,24 +6,16 @@
 Welcome to multiPoint's documentation!
 ======================================
 
-Contents:
+`multiPointSparse` is a helper module for doing multipoint
+optimizations. A tutorial explains the how MultiPointSparse is meant
+to be used and the API documentaion for the main class module `multiPoint` is
+on the API reference page.
 
 .. toctree::
    :maxdepth: 2
 
-.. _introduction:
-
-Introduction
-============
-
-`multiPointSparse` is a helper module for doing multipoint
-optimizations. The documentaion for the main class module `multiPoint`
-is given below. 
-
-.. currentmodule:: multiPointSparse
-
-.. autoclass:: multiPoint
-    :members:
+   tutorial
+   reference
 
 Indices and tables
 ==================
