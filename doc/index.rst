@@ -9,14 +9,12 @@ multiPoint
 
 Contents:
 
+``multiPointSparse`` is a helper module for doing multipoint
+optimizations. The documentaion ``multiPoint`` is given below.
+
+
 .. toctree::
    :maxdepth: 2
 
-`multiPointSparse` is a helper module for doing multipoint
-optimizations. The documentaion for the main class module `multiPoint`
-is given below. 
-
-.. currentmodule:: multipoint.multiPointSparse
-
-.. autoclass:: multiPointSparse
-    :members:
+   tutorial
+   reference
