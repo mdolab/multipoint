@@ -3,24 +3,20 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to multiPoint's documentation!
-======================================
+==========
+multiPoint
+==========
 
-`multiPointSparse` is a helper module for doing multipoint
-optimizations. A tutorial explains the how MultiPointSparse is meant
-to be used and the API documentaion for the main class module `multiPoint` is
-on the API reference page.
+Contents:
 
 .. toctree::
    :maxdepth: 2
 
-   tutorial
-   reference
+`multiPointSparse` is a helper module for doing multipoint
+optimizations. The documentaion for the main class module `multiPoint`
+is given below. 
 
-Indices and tables
-==================
+.. currentmodule:: multipoint.multiPointSparse
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-
+.. autoclass:: multiPointSparse
+    :members:
