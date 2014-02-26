@@ -133,14 +133,14 @@ class multiPointSparse(object):
 
     #. Evaluate function sensitivity for cruise::
 
-         def cruiseSens(x, fobj, fcon):
+         def cruiseSens(x, funcs):
              funcSens = {}
              ...
              return funcSens
 
     #. Evaluate function sensitivity for cruise::
 
-         def maneuverSens(x, fobj, fcon):
+        def maneuverSens(x, funcs):
              funcSens = {}
              ...
              return funcSens
@@ -189,14 +189,16 @@ class multiPointSparse(object):
         self.objective = None
         self.setFlags = None
         self.constraints = None
-        self.optProb = None
         self.cumSets = [0]
         self.commPattern = None
         # User-specified function
         self.userObjCon = None
 
         # Information used for determining keys for CS loop
-        self.conKeys = None
+        self.conKeys = []
+        self.outputWRT = {}
+        self.outputSize = {}
+        self.dvSize = {}
         self.funcs = None
         self.inputKeys = None
         self.outputKeys = None
@@ -472,15 +474,18 @@ class multiPointSparse(object):
             """
         if not isinstance(func, types.FunctionType):
             raise MPError('func must be a Python function handle.')
-
+        
         self.userObjCon = func
         
     def setOptProb(self, optProb):
         """
         Set the optimization problem that this multiPoint object will
         be used for. This is required for this class to know how to
-        assemble the gradients. The optProb must be \'finished\', that is
-        all variables and constraints have been added.
+        assemble the gradients. If the optProb is not 'finished', it
+        will done so here. Therefore, this function is collective on
+        the comm that optProb is built on. multiPoint sparse does
+        *not* hold a reference to optProb so no additional cahnges can
+        be made to optProb after this function is called. 
         
         Parameters
         ----------
@@ -488,17 +493,27 @@ class multiPointSparse(object):
             The optProb object to use 
             """
        
-        self.optProb = optProb
-       
-        conKeys = []
-        for iCon in self.optProb.constraints:
-            if not self.optProb.constraints[iCon].linear:
-                conKeys.append(iCon)
-        self.conKeys = set(conKeys)
-        self.funcs = None
-        self.inputKeys = None
-        self.outputKeys = None
-        self.passThroughKeys = None
+        optProb.finalizeDesignVariables()
+        optProb.finalizeConstraints()
+
+        # Since there is no distinction between objective(s) and
+        # constraints just put everything in conKeys, including the
+        # objective(s)
+        for iCon in optProb.constraints:
+            if not optProb.constraints[iCon].linear:
+                self.conKeys.append(iCon)
+                self.outputWRT[iCon] = optProb.constraints[iCon].wrt
+                self.outputSize[iCon] = optProb.constraints[iCon].ncon
+        for iObj in optProb.constraints:
+            self.conKeys.append(iObj)
+            self.outputWRT[iObj] = list(optProb.variables.keys())
+            self.outputSize[iObj] = 1
+
+        for dvSet in optProb.variables:
+            ss = optProb.dvOffset[dvSet]['n']
+            self.dvSize[dvSet] = ss[1] - ss[0]
+            
+        self.conKeys = set(self.conKeys)
         
     def obj(self, x):
         """
@@ -568,15 +583,13 @@ class multiPointSparse(object):
         self.passThroughKeys = funckeys.intersection(self.conKeys)
 
         inputFuncs = self._extractKeys(allFuncs, self.inputKeys)
-        fObj, fCon = self.userObjCon(inputFuncs)
+        funcs = self.userObjCon(inputFuncs)
 
-        fObj = self.gcomm.bcast(fObj, root=0)
-        fCon = self.gcomm.bcast(fCon, root=0)
-        fail = self.gcomm.bcast(fail, root=0)
+        (funcs, fail) = self.gcomm.bcast((funcs, fail), root=0)
 
-        return fObj, fCon, fail
+        return funcs, fail
     
-    def sens(self, x, fObj, fCon):
+    def sens(self, x, funcs):
         """
         This is a built-in sensitity function that is designed to be
         used directly as a the sensitivty function with
@@ -593,7 +606,7 @@ class multiPointSparse(object):
                 # Run "sens" funtion to functionals sensitivities
                 res = {}
                 for func in self.pSet[key].sensFunc:
-                    tmp = func(x, fObj, fCon)
+                    tmp = func(x, funcs)
                     assert tmp is not None,  "No return from user supplied\
  Sensitivity function for pSet %s. Functional derivatives must be returned in a\
  dictionary."% key
@@ -617,9 +630,10 @@ class multiPointSparse(object):
 
         # Now we have to perform the CS loop over the user-supplied
         # objCon function to generate the derivatives of our final
-        # constraints with respect to the intermediate functionals
+        # constraints (and objective(s)) with respect to the
+        # intermediate functionals. We will put everything in gcon
+        # (including the objective)
 
-        gobj = {}
         gcon = {}
 
         # Complexify just the keys we need:
@@ -636,80 +650,48 @@ class multiPointSparse(object):
         for oKey in self.outputKeys:
             gcon[oKey] = {}
             # Only loop over the DVsets that this constraint has:
-            for dvSet in self.optProb.constraints[oKey].wrt:
-                ss = self.optProb.dvOffset[dvSet]['n']                 
-                ndvs = ss[1]-ss[0]
-                ncon = self.optProb.constraints[oKey].ncon
-                gcon[oKey][dvSet] = numpy.zeros((ncon, ndvs))
+            for dvSet in self.outputWRT[oKey]:
+                gcon[oKey][dvSet] = numpy.zeros(
+                    (self.outputSize[oKey], self.dvSize[dvSet]))
 
         # Just complexify the keys to be petrurbed 'inputKeys'
         funcs = self._complexifyFuncs(self.funcs, self.inputKeys)
 
-        # Setup zeros for the gobj and gcon returns
-        for dvSet in self.optProb.variables:
-            ss = self.optProb.dvOffset[dvSet]['n']                 
-            ndvs = ss[1]-ss[0]
-            gobj[dvSet] = numpy.zeros(ndvs)
-
-        for oKey in self.outputKeys:
-            gcon[oKey] = {}
-            # Only loop over the DVsets that this constraint has:
-            for dvSet in self.optProb.constraints[oKey].wrt:
-                ss = self.optProb.dvOffset[dvSet]['n']                 
-                ndvs = ss[1]-ss[0]
-                ncon = self.optProb.constraints[oKey].ncon
-                gcon[oKey][dvSet] = numpy.zeros((ncon, ndvs))
-
         for iKey in self.inputKeys: # Keys to peturb:
             if numpy.isscalar(funcs[iKey]):
                 funcs[iKey] += 1e-40j
-                obj, con = self.userObjCon(funcs)
+                con = self.userObjCon(funcs)
                 funcs[iKey] -= 1e-40j
-
-                # Extract the derivative of objective
-                for dvSet in funcSens[iKey]:
-                    if dvSet in self.optProb.variables:
-                        deriv = numpy.imag(obj)/1e-40
-                        gobj[dvSet] += deriv * funcSens[iKey][dvSet]
 
                 # Extract the derivative of output key variables 
                 for oKey in self.outputKeys: 
-                    ncon = self.optProb.constraints[oKey].ncon
-                    for dvSet in self.optProb.constraints[oKey].wrt:
+                    n = self.outputSize[oKey] 
+                    for dvSet in self.outputWRT[oKey]:
                         if dvSet in funcSens[iKey]:
-                            deriv = (numpy.imag(con[oKey])/1e-40).reshape(
-                                (ncon, 1))
+                            deriv = (numpy.imag(con[oKey])/1e-40).reshape((n, 1))
                             gcon[oKey][dvSet] += numpy.dot(
                                 deriv, numpy.atleast_2d(funcSens[iKey][dvSet]))
 
             else:
                 for i in range(len(funcs[iKey])):
                     funcs[iKey][i] += 1e-40j
-                    obj, con = self.userObjCon(funcs)
+                    con = self.userObjCon(funcs)
                     funcs[iKey][i] -= 1e-40j
 
                     # Extract the derivative of output key variables 
-                    for dvSet in funcSens[iKey]:
-                        if dvSet in self.optProb.variables:
-                            deriv = numpy.imag(obj)/1e-40
-                            gobj[dvSet] += deriv * funcSens[iKey][dvSet][i, :]
-
-                    # Extract the derivative of output key variables 
                     for oKey in self.outputKeys: 
-                        ncon = self.optProb.constraints[oKey].ncon
-                        for dvSet in self.optProb.constraints[oKey].wrt:
+                        n = self.outputSize[oKey]
+                        for dvSet in self.outputWRT[oKey]:
                             if dvSet in funcSens[iKey]:
-                                deriv = (numpy.imag(con[oKey])/1e-40).reshape(
-                                    (ncon, 1))
+                                deriv = (numpy.imag(con[oKey])/1e-40).reshape((n, 1))
                                 gcon[oKey][dvSet] += \
                                     numpy.dot(deriv, numpy.atleast_2d(
                                     funcSens[iKey][dvSet][i, :]))
 
-        gobj = self.gcomm.bcast(gobj, root=0)
         gcon = self.gcomm.bcast(gcon, root=0)
         fail = self.gcomm.bcast(fail, root=0)
 
-        return gobj, gcon, fail
+        return gcon, fail
 
     def _complexifyFuncs(self, funcs, keys):
         """ Convert functionals to complex type"""
