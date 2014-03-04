@@ -504,7 +504,7 @@ class multiPointSparse(object):
                 self.conKeys.append(iCon)
                 self.outputWRT[iCon] = optProb.constraints[iCon].wrt
                 self.outputSize[iCon] = optProb.constraints[iCon].ncon
-        for iObj in optProb.constraints:
+        for iObj in optProb.objectives:
             self.conKeys.append(iObj)
             self.outputWRT[iObj] = list(optProb.variables.keys())
             self.outputSize[iObj] = 1
