@@ -195,7 +195,7 @@ class multiPointSparse(object):
         self.userObjCon = None
 
         # Information used for determining keys for CS loop
-        self.conKeys = []
+        self.conKeys = set()
         self.outputWRT = {}
         self.outputSize = {}
         self.dvSize = {}
@@ -501,11 +501,11 @@ class multiPointSparse(object):
         # objective(s)
         for iCon in optProb.constraints:
             if not optProb.constraints[iCon].linear:
-                self.conKeys.append(iCon)
+                self.conKeys.add(iCon)
                 self.outputWRT[iCon] = optProb.constraints[iCon].wrt
                 self.outputSize[iCon] = optProb.constraints[iCon].ncon
         for iObj in optProb.objectives:
-            self.conKeys.append(iObj)
+            self.conKeys.add(iObj)
             self.outputWRT[iObj] = list(optProb.variables.keys())
             self.outputSize[iObj] = 1
 
@@ -513,7 +513,6 @@ class multiPointSparse(object):
             ss = optProb.dvOffset[dvSet]['n']
             self.dvSize[dvSet] = ss[1] - ss[0]
             
-        self.conKeys = set(self.conKeys)
         
     def obj(self, x):
         """
