@@ -514,7 +514,7 @@ class multiPointSparse(object):
             self.dvSize[dvSet] = ss[1] - ss[0]
             
         self.conKeys = set(self.conKeys)
-        
+
     def obj(self, x):
         """
         This is a built-in objective function that is designed to be
@@ -581,10 +581,14 @@ class multiPointSparse(object):
         self.inputKeys = funckeys.difference(self.conKeys)
         self.outputKeys = self.conKeys.difference(funckeys)
         self.passThroughKeys = funckeys.intersection(self.conKeys)
-
+               
         inputFuncs = self._extractKeys(allFuncs, self.inputKeys)
+        passThroughFuncs = self._extractKeys(allFuncs, self.passThroughKeys)
         funcs = self.userObjCon(inputFuncs)
 
+        # Add the pass-through ones back:
+        funcs.update(passThroughFuncs)
+        
         (funcs, fail) = self.gcomm.bcast((funcs, fail), root=0)
 
         return funcs, fail
