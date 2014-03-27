@@ -19,6 +19,7 @@ from __future__ import print_function
 # Imports
 # =============================================================================
 import os
+import inspect
 import types
 import copy
 try:
@@ -193,7 +194,8 @@ class multiPointSparse(object):
         self.commPattern = None
         # User-specified function
         self.userObjCon = None
-
+        self.nUserObjConArgs = None
+        
         # Information used for determining keys for CS loop
         self.conKeys = set()
         self.outputWRT = {}
@@ -474,9 +476,22 @@ class multiPointSparse(object):
             """
         if not isinstance(func, types.FunctionType):
             raise MPError('func must be a Python function handle.')
-        
+
+        # Also do some checking on function prototype to make sure it
+        # is ok:
+        argSpec = inspect.getargspec(func)
+        if (argSpec.varargs is not None or
+            argSpec.keywords is not None or
+            argSpec.defaults is not None or
+            len(argSpec.args) not in [1,2]):
+            raise MPError("The function signature for the function given "
+                          "to 'setObjCon' is invalid. It must be: "
+                          "def objCon(funcs): or def objCon(funcs, printOK):")
+
+        # Now we know that there are exactly one or two arguments.
+        self.nUserObjConArgs = len(argSpec.args)
         self.userObjCon = func
-        
+       
     def setOptProb(self, optProb):
         """
         Set the optimization problem that this multiPoint object will
@@ -584,8 +599,8 @@ class multiPointSparse(object):
                
         inputFuncs = self._extractKeys(allFuncs, self.inputKeys)
         passThroughFuncs = self._extractKeys(allFuncs, self.passThroughKeys)
-        funcs = self.userObjCon(inputFuncs)
-
+        funcs = self._userObjConWrap(inputFuncs, True)
+        
         # Add the pass-through ones back:
         funcs.update(passThroughFuncs)
         
@@ -664,7 +679,7 @@ class multiPointSparse(object):
         for iKey in self.inputKeys: # Keys to peturb:
             if numpy.isscalar(funcs[iKey]):
                 funcs[iKey] += 1e-40j
-                con = self.userObjCon(funcs)
+                con = self._userObjConWrap(funcs, False)
                 funcs[iKey] -= 1e-40j
 
                 # Extract the derivative of output key variables 
@@ -679,7 +694,7 @@ class multiPointSparse(object):
             else:
                 for i in range(len(funcs[iKey])):
                     funcs[iKey][i] += 1e-40j
-                    con = self.userObjCon(funcs)
+                    con = self._userObjConWrap(funcs, False)
                     funcs[iKey][i] -= 1e-40j
 
                     # Extract the derivative of output key variables 
@@ -712,6 +727,16 @@ class multiPointSparse(object):
             newDict[key] = copy.deepcopy(funcs[key])
         return newDict
 
+    def _userObjConWrap(self, funcs, printOK):
+        """Small wrapper to determine how to call user function:"""
+        if self.nUserObjConArgs == 1:
+            return self.userObjCon(funcs)
+        else:
+            if self.gcomm.rank == 0:
+                return self.userObjCon(funcs, printOK)
+            else:
+                return self.userObjCon(funcs, False)
+            
 class procSet(object):
     """
     A container class to bundle information pretaining to a specific
