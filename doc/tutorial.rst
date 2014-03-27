@@ -1,4 +1,4 @@
-.. _tutorial:
+.. _multipoint_tutorial:
 
 Tutorial
 ========

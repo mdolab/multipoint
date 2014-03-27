@@ -1,4 +1,4 @@
-.. _API_reference:
+.. _multipoint_API:
 
 API Reference
 =============
