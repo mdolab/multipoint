@@ -599,7 +599,7 @@ class multiPointSparse(object):
                
         inputFuncs = self._extractKeys(allFuncs, self.inputKeys)
         passThroughFuncs = self._extractKeys(allFuncs, self.passThroughKeys)
-        funcs = self._userObjConWrap(inputFuncs, True)
+        funcs = self._userObjConWrap(allFuncs, True)
         
         # Add the pass-through ones back:
         funcs.update(passThroughFuncs)
