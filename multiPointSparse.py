@@ -545,17 +545,16 @@ class multiPointSparse(object):
         for key in self.pSet:
             if self.setFlags[key]: 
                 # Run "obj" funtion to generate functionals
-                res = {}
+                res = {'fail':False}
                 for func in self.pSet[key].objFunc:
                     tmp = func(x)
                     assert tmp is not None, "No return from user supplied\
                 Objective function for pSet %s. Functionals must be returned in a\
                           dictionary."% key
+                    if 'fail' in tmp:
+                        res['fail'] = tmp.pop('fail') or res['fail']
                     res.update(tmp)
                     
-                if 'fail' not in res:
-                    res['fail'] = False
- 
         if self.commPattern is None:
             # On the first pass we need to determine the (one-time)
             # communication pattern
@@ -623,16 +622,15 @@ class multiPointSparse(object):
         for key in self.pSet:
             if self.setFlags[key]: 
                 # Run "sens" funtion to functionals sensitivities
-                res = {}
+                res = {'fail':False}
                 for func in self.pSet[key].sensFunc:
                     tmp = func(x, funcs)
                     assert tmp is not None,  "No return from user supplied\
  Sensitivity function for pSet %s. Functional derivatives must be returned in a\
  dictionary."% key
+                    if 'fail' in tmp:
+                        res['fail'] = tmp.pop('fail') or res['fail']
                     res.update(tmp)
-                    
-                if 'fail' not in res:
-                    res['fail'] = False
 
         # Perform Communication of functional (derivatives)
         funcSens = dict()
