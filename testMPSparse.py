@@ -17,7 +17,7 @@ from pywarp import *
 from pygeo import *
 from pyspline import *
 import multiPointSparse
-from pyOptSparse import Optimization, pySNOPT
+from pyoptsparse import Optimization, pySNOPT
 
 # ================================================================
 #                   INPUT INFORMATION  
@@ -53,7 +53,7 @@ CL_star['fc3'] = 0.45
 CL_star['fc4'] = 0.55
 
 # Create MultiPointSparse object
-MP = multiPointSparse.multiPoint(MPI.COMM_WORLD)
+MP = multiPointSparse.multiPointSparse(MPI.COMM_WORLD)
 MP.addProcessorSet('cruise', nGroup, 8)
 comm, setComm, setFlags, groupFlags, ptID = MP.createCommunicators()
 
@@ -335,17 +335,17 @@ def cruiseSens(x, fobj, fcon):
 def objCon(funcs):
     # Assemble the objective and any additional constraints:
 
-    fobj = 0.0
+    funcs['cd'] = 0.0
     for i in xrange(nFlowCases):
         fc = flowCases[i]
-        fobj += funcs['cd_'+fc]/nFlowCases
+        funcs['cd'] += funcs['cd_'+fc]/nFlowCases
 
         # Compute the lift constraint by subtracting the desired
         # CL_star
         funcs['cl_con_'+fc] = funcs['cl_'+fc] - CL_star[fc]
     # end for
 
-    return fobj, funcs
+    return funcs
 
 # =====================================================
 #   Set-up Optimization Problem
