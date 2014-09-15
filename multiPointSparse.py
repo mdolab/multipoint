@@ -552,7 +552,7 @@ class multiPointSparse(object):
                 Objective function for pSet %s. Functionals must be returned in a\
                           dictionary."% key
                     if 'fail' in tmp:
-                        res['fail'] = tmp.pop('fail') or res['fail']
+                        res['fail'] = bool(tmp.pop('fail') or res['fail'])
                     res.update(tmp)
                     
         if self.commPattern is None:
@@ -629,7 +629,7 @@ class multiPointSparse(object):
  Sensitivity function for pSet %s. Functional derivatives must be returned in a\
  dictionary."% key
                     if 'fail' in tmp:
-                        res['fail'] = tmp.pop('fail') or res['fail']
+                        res['fail'] = bool(tmp.pop('fail') or res['fail'])
                     res.update(tmp)
 
         # Perform Communication of functional (derivatives)
