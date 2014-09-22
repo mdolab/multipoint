@@ -191,7 +191,8 @@ class multiPointSparse(object):
         self.setFlags = None
         self.constraints = None
         self.cumSets = [0]
-        self.commPattern = None
+        self.objCommPattern = None
+        self.sensCommPattern = None
         # User-specified function
         self.userObjCon = None
         self.nUserObjConArgs = None
@@ -201,6 +202,7 @@ class multiPointSparse(object):
         self.outputWRT = {}
         self.outputSize = {}
         self.dvSize = {}
+        self.dvsAsFuncs = []
         self.funcs = None
         self.inputKeys = None
         self.outputKeys = None
@@ -340,7 +342,23 @@ class multiPointSparse(object):
 
         return comm, setComm, setFlags, groupFlags, ptID
 
+    def getSetName(self):
+        """After MP.createCommunicators is call, this routine may be called
+        to return the name of the set that this processor belongs
+        to. This may result in slightly cleaner script code.
+
+        Returns
+        -------
+        setName : str
+            The name of the set that this processor belongs to.
+        """
+        
+        for iset in self.setFlags:
+            if self.setFlags[iset]:
+                return iset
+
     def createDirectories(self, rootDir):
+
         """
         This function can be called only after all the procSets have
         been added. This can facilitate distingushing output files
@@ -399,6 +417,8 @@ class multiPointSparse(object):
         func : Python function
             Python function handle 
             """
+        if setName in self.dummyPSet:
+            return 
         if setName not in self.pSet:
             raise MPError("'setName' has not been added with addProcessorSet.")
         if not isinstance(func, types.FunctionType):
@@ -417,8 +437,9 @@ class multiPointSparse(object):
             Name of set we are setting the function for
         func : Python function
             Python function handle 
-
-            """
+        """
+        if setName in self.dummyPSet:
+            return 
         if setName not in self.pSet:
             raise MPError("'setName' has not been added with addProcessorSet.")
         if not isinstance(func, types.FunctionType):
@@ -437,6 +458,8 @@ class multiPointSparse(object):
         func : Python function
             Python function handle 
             """
+        if setName in self.dummyPSet:
+            return 
         if setName not in self.pSet:
             raise MPError("'setName' has not been added with addProcessorSet.")
         if not isinstance(func, types.FunctionType):
@@ -457,6 +480,9 @@ class multiPointSparse(object):
             Python function handle 
 
             """
+        if setName in self.dummyPSet:
+            return 
+
         if setName not in self.pSet:
             raise MPError("'setName' has not been added with addProcessorSet.")
         if not isinstance(func, types.FunctionType):
@@ -483,11 +509,12 @@ class multiPointSparse(object):
         if (argSpec.varargs is not None or
             argSpec.keywords is not None or
             argSpec.defaults is not None or
-            len(argSpec.args) not in [1,2]):
+            len(argSpec.args) not in [1, 2, 3]):
             raise MPError("The function signature for the function given "
                           "to 'setObjCon' is invalid. It must be: "
-                          "def objCon(funcs): or def objCon(funcs, printOK):")
-
+                          "def objCon(funcs):, def objCon(funcs, printOK): "
+                          "or def objCon(funcs, printOK, passThroughFuncs):")
+        
         # Now we know that there are exactly one or two arguments.
         self.nUserObjConArgs = len(argSpec.args)
         self.userObjCon = func
@@ -530,7 +557,31 @@ class multiPointSparse(object):
             
         self.conKeys = set(self.conKeys)
 
+        # Check the dvsAsFuncs names to make sure they are *actually*
+        # design variables and raise error
+        for dv in self.dvsAsFunctions:
+            if dv not in optProb.varSetNames:
+                raise MPError("The supplied design variable '%s' in a"
+                              "addDVsAsFunctions() call does not exist "
+                              "in the supplied Optimizatin object.")
+
+    def addDVsAsFunctions(self, dvs):
+        """This function allows you to specify a list of design variables to
+        be explictly used as functions. Essentially, we just copy the
+        values of the DVs directly into keys in 'fucncs' and
+        automatically generate an identity jacobian. This allows the
+        remainder of the objective/sensitivity computations to be
+        proceeed as per usual. 
+
+        Parameters
+        ----------
+        dvs : list of strings
+           The DV names the user wants to use directly as functions
+        """
+        self.dvsAsFuncs.extend(dvs)
+        
     def obj(self, x):
+
         """
         This is a built-in objective function that is designed to be
         used directly as an objective function with pyOptSparse. The
@@ -555,36 +606,41 @@ class multiPointSparse(object):
                         res['fail'] = bool(tmp.pop('fail') or res['fail'])
                     res.update(tmp)
                     
-        if self.commPattern is None:
+        if self.objCommPattern is None:
             # On the first pass we need to determine the (one-time)
             # communication pattern
 
             # Send all the keys
             allKeys = self.gcomm.allgather(list(res.keys()))
            
-            self.commPattern = dict()  
+            self.objCommPattern = dict()  
 
             for i in range(len(allKeys)): # This is looping over processors
                 for key in allKeys[i]: # This loops over keys from proc
-                    if key not in self.commPattern:
+                    if key not in self.objCommPattern:
                         if key != 'fail':
                             # Only add on the lowest proc and ignore on higher
                             # ones
-                            self.commPattern[key] = i
+                            self.objCommPattern[key] = i
               
         # Perform Communication of functionals
         allFuncs = dict()
-        for key in self.commPattern:
-            if self.commPattern[key] == self.gcomm.rank:
-                tmp = self.gcomm.bcast(res[key], root=self.commPattern[key])
+        for key in self.objCommPattern:
+            if self.objCommPattern[key] == self.gcomm.rank:
+                tmp = self.gcomm.bcast(res[key], root=self.objCommPattern[key])
             else:
-                tmp = self.gcomm.bcast(None, root=self.commPattern[key])
+                tmp = self.gcomm.bcast(None, root=self.objCommPattern[key])
 
             allFuncs[key] = tmp
           
         # Simply do an allReduce on the fail flag:
         fail = self.gcomm.allreduce(res['fail'], op=MPI.LOR)
         
+        # Add in the extra DVs as Funcs...can do this on all procs
+        # since all procs have the same x
+        for dv in self.dvsAsFuncs:
+            allFuncs[dv] = x[dv]
+
         # Save the functions since we need these for the derivatives
         self.funcs = copy.deepcopy(allFuncs)
   
@@ -598,7 +654,7 @@ class multiPointSparse(object):
                
         inputFuncs = self._extractKeys(allFuncs, self.inputKeys)
         passThroughFuncs = self._extractKeys(allFuncs, self.passThroughKeys)
-        funcs = self._userObjConWrap(allFuncs, True)
+        funcs = self._userObjConWrap(inputFuncs, True, passThroughFuncs)
         
         # Add the pass-through ones back:
         funcs.update(passThroughFuncs)
@@ -630,20 +686,46 @@ class multiPointSparse(object):
  dictionary."% key
                     if 'fail' in tmp:
                         res['fail'] = bool(tmp.pop('fail') or res['fail'])
+
                     res.update(tmp)
+
+        if self.sensCommPattern is None:
+            # On the first pass we need to determine the (one-time)
+            # communication pattern
+
+            # Send all the keys
+            allKeys = self.gcomm.allgather(list(res.keys()))
+           
+            self.sensCommPattern = dict()  
+
+            for i in range(len(allKeys)): # This is looping over processors
+                for key in allKeys[i]: # This loops over keys from proc
+                    if key not in self.sensCommPattern:
+                        if key != 'fail':
+                            # Only add on the lowest proc and ignore on higher
+                            # ones
+                            self.sensCommPattern[key] = i
 
         # Perform Communication of functional (derivatives)
         funcSens = dict()
-        for key in self.commPattern:
-            if self.commPattern[key] == self.gcomm.rank:
-                tmp = self.gcomm.bcast(res[key], root=self.commPattern[key])
+        for key in self.sensCommPattern:
+            if self.sensCommPattern[key] == self.gcomm.rank:
+                tmp = self.gcomm.bcast(res[key], root=self.sensCommPattern[key])
             else:
-                tmp = self.gcomm.bcast(None, root=self.commPattern[key])
+                tmp = self.gcomm.bcast(None, root=self.sensCommPattern[key])
  
             funcSens[key] = tmp
            
         # Simply do an allReduce on the fail flag:
         fail = self.gcomm.allreduce(res['fail'], op=MPI.LOR)
+
+        # Add in the sensitivity of the extra DVs as Funcs...This will
+        # just be an identity matrix
+        for dv in self.dvsAsFuncs:
+            if numpy.isscalar(x[key]):
+                funcsSens[key] = {key:numpy.eye(1)}
+            else:
+                funcsSens[key] = {key:numpy.eye(len(x[key]))}
 
         # Now we have to perform the CS loop over the user-supplied
         # objCon function to generate the derivatives of our final
@@ -656,8 +738,9 @@ class multiPointSparse(object):
         # Complexify just the keys we need:
         funcs = self._complexifyFuncs(self.funcs, self.inputKeys)
 
-        # Extract just the input keys
+        # Extract:
         funcs = self._extractKeys(funcs, self.inputKeys)
+        passThroughFuncs = self._extractKeys(allFuncs, self.passThroughKeys)
 
         # Just copy the passthrough keys:
         for pKey in self.passThroughKeys:
@@ -677,7 +760,7 @@ class multiPointSparse(object):
         for iKey in self.inputKeys: # Keys to peturb:
             if numpy.isscalar(funcs[iKey]):
                 funcs[iKey] += 1e-40j
-                con = self._userObjConWrap(funcs, False)
+                con = self._userObjConWrap(funcs, False, passThroughFuncs)
                 funcs[iKey] -= 1e-40j
 
                 # Extract the derivative of output key variables 
@@ -692,7 +775,7 @@ class multiPointSparse(object):
             else:
                 for i in range(len(funcs[iKey])):
                     funcs[iKey][i] += 1e-40j
-                    con = self._userObjConWrap(funcs, False)
+                    con = self._userObjConWrap(funcs, False, passThroughFuncs)
                     funcs[iKey][i] -= 1e-40j
 
                     # Extract the derivative of output key variables 
@@ -725,15 +808,20 @@ class multiPointSparse(object):
             newDict[key] = copy.deepcopy(funcs[key])
         return newDict
 
-    def _userObjConWrap(self, funcs, printOK):
+    def _userObjConWrap(self, funcs, printOK, passThroughFuncs):
         """Small wrapper to determine how to call user function:"""
         if self.nUserObjConArgs == 1:
             return self.userObjCon(funcs)
-        else:
+        elif self.nUserObjConArgs == 2:
             if self.gcomm.rank == 0:
                 return self.userObjCon(funcs, printOK)
             else:
                 return self.userObjCon(funcs, False)
+        else self.nUserObjConArgs == 3:
+            if self.gcomm.rank == 0:
+                return self.userObjCon(funcs, printOK, passThroughFuncs)
+            else:
+                return self.userObjCon(funcs, False, passThroughFuncs)
             
 class procSet(object):
     """
