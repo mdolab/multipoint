@@ -817,7 +817,7 @@ class multiPointSparse(object):
                 return self.userObjCon(funcs, printOK)
             else:
                 return self.userObjCon(funcs, False)
-        else self.nUserObjConArgs == 3:
+        elif self.nUserObjConArgs == 3:
             if self.gcomm.rank == 0:
                 return self.userObjCon(funcs, printOK, passThroughFuncs)
             else:
