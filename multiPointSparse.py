@@ -727,10 +727,10 @@ class multiPointSparse(object):
         # Add in the sensitivity of the extra DVs as Funcs...This will
         # just be an identity matrix
         for dv in self.dvsAsFuncs:
-            if numpy.isscalar(x[key]):
-                funcsSens[key] = {key:numpy.eye(1)}
+            if numpy.isscalar(x[dv]):
+                funcSens[dv] = {key:numpy.eye(1)}
             else:
-                funcsSens[key] = {key:numpy.eye(len(x[key]))}
+                funcSens[dv] = {key:numpy.eye(len(x[dv]))}
 
         # Now we have to perform the CS loop over the user-supplied
         # objCon function to generate the derivatives of our final
@@ -740,9 +740,9 @@ class multiPointSparse(object):
 
         gcon = {}
         # Extract/Complexify just the keys we need:
-        passThroughFuncs = self._extractKeys(funcs, self.passThroughKeys)
-        funcs = self._complexifyFuncs(self.funcs, self.inputKeys)
-        funcs = self._extractKeys(funcs, self.inputKeys)
+        passThroughFuncs = self._extractKeys(self.funcs, self.passThroughKeys)
+        cFuncs = self._extractKeys(self.funcs, self.inputKeys)
+        cFuncs = self._complexifyFuncs(cFuncs, self.inputKeys)
 
         # Just copy the passthrough keys:
         for pKey in self.passThroughKeys:
@@ -757,10 +757,10 @@ class multiPointSparse(object):
                     (self.outputSize[oKey], self.dvSize[dvSet]))
 
         for iKey in self.inputKeys: # Keys to peturb:
-            if numpy.isscalar(funcs[iKey]):
-                funcs[iKey] += 1e-40j
-                con = self._userObjConWrap(funcs, False, passThroughFuncs)
-                funcs[iKey] -= 1e-40j
+            if numpy.isscalar(cFuncs[iKey]):
+                cFuncs[iKey] += 1e-40j
+                con = self._userObjConWrap(cFuncs, False, passThroughFuncs)
+                cFuncs[iKey] -= 1e-40j
 
                 # Extract the derivative of output key variables 
                 for oKey in self.outputKeys: 
@@ -772,10 +772,10 @@ class multiPointSparse(object):
                                 deriv, numpy.atleast_2d(funcSens[iKey][dvSet]))
 
             else:
-                for i in range(len(funcs[iKey])):
-                    funcs[iKey][i] += 1e-40j
-                    con = self._userObjConWrap(funcs, False, passThroughFuncs)
-                    funcs[iKey][i] -= 1e-40j
+                for i in range(len(cFuncs[iKey])):
+                    cFuncs[iKey][i] += 1e-40j
+                    con = self._userObjConWrap(cFuncs, False, passThroughFuncs)
+                    cFuncs[iKey][i] -= 1e-40j
                     
                     # Extract the derivative of output key variables 
                     for oKey in self.outputKeys: 
