@@ -599,9 +599,12 @@ class multiPointSparse(object):
                 res = {'fail':False}
                 for func in self.pSet[key].objFunc:
                     tmp = func(x)
-                    assert tmp is not None, "No return from user supplied\
-                Objective function for pSet %s. Functionals must be returned in a\
-                          dictionary."% key
+                    if tmp is None:
+                        raise MPError("No return from user supplied objective "
+                                      "function for pSet %s. Functional "
+                                      "derivatives must be returned in a "
+                                      "dictionary."% key)
+
                     if 'fail' in tmp:
                         res['fail'] = bool(tmp.pop('fail') or res['fail'])
                     res.update(tmp)
@@ -658,7 +661,7 @@ class multiPointSparse(object):
         
         # Add the pass-through ones back:
         funcs.update(passThroughFuncs)
-        
+
         (funcs, fail) = self.gcomm.bcast((funcs, fail), root=0)
 
         return funcs, fail
@@ -681,9 +684,11 @@ class multiPointSparse(object):
                 res = {'fail':False}
                 for func in self.pSet[key].sensFunc:
                     tmp = func(x, funcs)
-                    assert tmp is not None,  "No return from user supplied\
- Sensitivity function for pSet %s. Functional derivatives must be returned in a\
- dictionary."% key
+                    if tmp is None:
+                        raise MPError("No return from user supplied sensitivity "
+                                      "function for pSet %s. Functional "
+                                      "derivatives must be returned in a "
+                                      "dictionary."% key)
                     if 'fail' in tmp:
                         res['fail'] = bool(tmp.pop('fail') or res['fail'])
 
@@ -734,13 +739,10 @@ class multiPointSparse(object):
         # (including the objective)
 
         gcon = {}
-
-        # Complexify just the keys we need:
+        # Extract/Complexify just the keys we need:
+        passThroughFuncs = self._extractKeys(funcs, self.passThroughKeys)
         funcs = self._complexifyFuncs(self.funcs, self.inputKeys)
-
-        # Extract:
         funcs = self._extractKeys(funcs, self.inputKeys)
-        passThroughFuncs = self._extractKeys(allFuncs, self.passThroughKeys)
 
         # Just copy the passthrough keys:
         for pKey in self.passThroughKeys:
@@ -753,9 +755,6 @@ class multiPointSparse(object):
             for dvSet in self.outputWRT[oKey]:
                 gcon[oKey][dvSet] = numpy.zeros(
                     (self.outputSize[oKey], self.dvSize[dvSet]))
-
-        # Just complexify the keys to be petrurbed 'inputKeys'
-        funcs = self._complexifyFuncs(self.funcs, self.inputKeys)
 
         for iKey in self.inputKeys: # Keys to peturb:
             if numpy.isscalar(funcs[iKey]):
@@ -777,7 +776,7 @@ class multiPointSparse(object):
                     funcs[iKey][i] += 1e-40j
                     con = self._userObjConWrap(funcs, False, passThroughFuncs)
                     funcs[iKey][i] -= 1e-40j
-
+                    
                     # Extract the derivative of output key variables 
                     for oKey in self.outputKeys: 
                         n = self.outputSize[oKey]
@@ -786,7 +785,7 @@ class multiPointSparse(object):
                                 deriv = (numpy.imag(con[oKey])/1e-40).reshape((n, 1))
                                 gcon[oKey][dvSet] += \
                                     numpy.dot(deriv, numpy.atleast_2d(
-                                    funcSens[iKey][dvSet][i, :]))
+                                        funcSens[iKey][dvSet][i, :]))
 
         gcon = self.gcomm.bcast(gcon, root=0)
         fail = self.gcomm.bcast(fail, root=0)
