@@ -728,9 +728,9 @@ class multiPointSparse(object):
         # just be an identity matrix
         for dv in self.dvsAsFuncs:
             if numpy.isscalar(x[dv]):
-                funcSens[dv] = {key:numpy.eye(1)}
+                funcSens[dv] = {dv:numpy.eye(1)}
             else:
-                funcSens[dv] = {key:numpy.eye(len(x[dv]))}
+                funcSens[dv] = {dv:numpy.eye(len(x[dv]))}
 
         # Now we have to perform the CS loop over the user-supplied
         # objCon function to generate the derivatives of our final
