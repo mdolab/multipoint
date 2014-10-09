@@ -203,6 +203,7 @@ class multiPointSparse(object):
         self.outputSize = {}
         self.dvSize = {}
         self.dvsAsFuncs = []
+        self.consAsInputs = []
         self.funcs = None
         self.inputKeys = None
         self.outputKeys = None
@@ -575,10 +576,30 @@ class multiPointSparse(object):
 
         Parameters
         ----------
-        dvs : list of strings
+        dvs : string or list of strings
            The DV names the user wants to use directly as functions
         """
-        self.dvsAsFuncs.extend(dvs)
+        
+        if type(dvs) == str:
+            self.dvsAsFuncs.append(dvs)
+        elif type(dvs) == list:
+            self.dvsAsFuncs.extend(dvs)
+
+    def addConsAsObjConInputs(self, cons):
+        """
+        This function allows functions to be used both as constraints, 
+        as well as inputs to the ObjCon, therefore no longer bypassed.
+
+        Parameters
+        ----------
+        cons : string or list of strings
+           The constraint names the user wants to use as ObjCon inputs
+        """
+        
+        if type(cons) == str:
+            self.consAsInputs.append(cons)
+        elif type(cons) == list:
+            self.consAsInputs.extend(cons)
         
     def obj(self, x):
 
@@ -651,9 +672,19 @@ class multiPointSparse(object):
         funckeys = set(allFuncs.keys())
         # Input Keys are the input variables to the objCon function
         # Output Keys are the output variables from the objCon function
-        self.inputKeys = funckeys.difference(self.conKeys)
-        self.outputKeys = self.conKeys.difference(funckeys)
-        self.passThroughKeys = funckeys.intersection(self.conKeys)
+        self.inputKeys = funckeys.difference(self.conKeys)   # input = func - con
+        self.outputKeys = self.conKeys.difference(funckeys)  # output = con - func
+        self.passThroughKeys = funckeys.intersection(self.conKeys)   # passThrough = func & con
+
+        # Manage any keys that are both inputs and constraints (consAsInputs)
+        # Check consAsFuncs only contains keys contained in passThoughKeys
+        # inputKeys += consAsInputs
+        # passThroughKeys -= consAsInputs
+        if len(self.consAsInputs) > 0:
+            self.consAsInputs = set(self.consAsInputs)
+            self.consAsInputs.intersection_update(self.passThroughKeys)
+            self.inputKeys.update(self.consAsInputs)
+            self.passThroughKeys.difference_update(self.consAsInputs)  
                
         inputFuncs = self._extractKeys(allFuncs, self.inputKeys)
         passThroughFuncs = self._extractKeys(allFuncs, self.passThroughKeys)
@@ -744,9 +775,11 @@ class multiPointSparse(object):
         cFuncs = self._extractKeys(self.funcs, self.inputKeys)
         cFuncs = self._complexifyFuncs(cFuncs, self.inputKeys)
 
-        # Just copy the passthrough keys:
+        # Just copy the passthrough keys and keys that are both inputs and constrains:
         for pKey in self.passThroughKeys:
             gcon[pKey] = funcSens[pKey]
+        for cKey in self.consAsInputs:
+            gcon[cKey] = funcSens[cKey]
 
         # Setup zeros for the output keys:
         for oKey in self.outputKeys:
