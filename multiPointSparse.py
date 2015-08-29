@@ -420,7 +420,8 @@ class multiPointSparse(object):
         if setName in self.dummyPSet:
             return 
         if setName not in self.pSet:
-            raise MPError("'setName' has not been added with addProcessorSet.")
+            raise MPError("setName '%s' has not been added with "
+                          "addProcessorSet."%setName)
         if not isinstance(func, types.FunctionType):
             raise MPError('func must be a Python function handle.')
 
@@ -441,7 +442,8 @@ class multiPointSparse(object):
         if setName in self.dummyPSet:
             return 
         if setName not in self.pSet:
-            raise MPError("'setName' has not been added with addProcessorSet.")
+            raise MPError("setName '%s' has not been added with "
+                          "addProcessorSet."%setName)
         if not isinstance(func, types.FunctionType):
             raise MPError('func must be a Python function handle.')
 
@@ -461,7 +463,8 @@ class multiPointSparse(object):
         if setName in self.dummyPSet:
             return 
         if setName not in self.pSet:
-            raise MPError("'setName' has not been added with addProcessorSet.")
+            raise MPError("setName '%s' has not been added with "
+                          "addProcessorSet."%setName)
         if not isinstance(func, types.FunctionType):
             raise MPError('func must be a Python function handle.')
 
@@ -484,7 +487,8 @@ class multiPointSparse(object):
             return 
 
         if setName not in self.pSet:
-            raise MPError("'setName' has not been added with addProcessorSet.")
+            raise MPError("setName '%s' has not been added with "
+                          "addProcessorSet."%setName)
         if not isinstance(func, types.FunctionType):
             raise MPError('func must be a Python function handle.')
 
