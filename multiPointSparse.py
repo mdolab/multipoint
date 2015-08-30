@@ -556,9 +556,9 @@ class multiPointSparse(object):
             self.outputWRT[iObj] = list(optProb.variables.keys())
             self.outputSize[iObj] = 1
 
-        for dvSet in optProb.variables:
-            ss = optProb.dvOffset[dvSet]['n']
-            self.dvSize[dvSet] = ss[1] - ss[0]
+        for dvGroup in optProb.variables:
+            ss = optProb.dvOffset[dvGroup]
+            self.dvSize[dvGroup] = ss[1] - ss[0]
             
         self.conKeys = set(self.conKeys)
 
