@@ -355,7 +355,7 @@ opt_prob = Optimization('opt', MP.obj, use_groups=True)
 
 # Add Aero Variables
 for fc in flowCases:
-    opt_prob.addVar('alpha_'+fc, value=1.6, lower=0.,upper=10., scale=.1, varSet='alpha_'+fc)
+    opt_prob.addVar('alpha_'+fc, value=1.6, lower=0.,upper=10., scale=.1)
 
 # Add Geo variables
 opt_prob = DVGeo.addVariablesPyOpt(opt_prob)

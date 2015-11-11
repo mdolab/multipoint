@@ -591,7 +591,7 @@ class multiPointSparse(object):
         # Check the dvsAsFuncs names to make sure they are *actually*
         # design variables and raise error
         for dv in self.dvsAsFuncs:
-            if dv not in optProb.varSetNames:
+            if dv not in optProb.variables:
                 raise MPError("The supplied design variable '%s' in "
                               "addDVsAsFunctions() call does not exist "
                               "in the supplied Optimization object."%dv)
