@@ -12,7 +12,7 @@ import numpy, argparse
 # =============================================================================
 from mpi4py import MPI
 from baseclasses import *
-from sumb import *
+from adflow import *
 from pywarp import *
 from pygeo import *
 from pyspline import *
@@ -182,7 +182,7 @@ if setFlags['cruise']:
     mesh = MBMesh(grid_file,comm,meshOptions=meshOptions)
     mesh.addFamilyGroup("wing")
 
-    CFDsolver = SUMB(comm=comm, options=aeroOptions, mesh=mesh)
+    CFDsolver = ADFLOW(comm=comm, options=aeroOptions, mesh=mesh)
     CFDsolver.initialize(aeroProblems['fc1'])
     CFDsolver.addAeroDV('aofa')
     CFDsolver.addLiftDistribution(150, 'z')
