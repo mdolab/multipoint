@@ -788,7 +788,7 @@ class multiPointSparse(object):
         # Add in the sensitivity of the extra DVs as Funcs...This will
         # just be an identity matrix
         for dv in self.dvsAsFuncs:
-            if numpy.isscalar(x[dv]):
+            if numpy.isscalar(x[dv]) or len(numpy.atleast_1d(x[dv])) == 1:
                 funcSens[dv] = {dv:numpy.eye(1)}
             else:
                 funcSens[dv] = {dv:numpy.eye(len(x[dv]))}
@@ -820,7 +820,7 @@ class multiPointSparse(object):
                     (self.outputSize[oKey], self.dvSize[dvSet]))
 
         for iKey in self.inputKeys: # Keys to peturb:
-            if numpy.isscalar(cFuncs[iKey]):
+            if numpy.isscalar(cFuncs[iKey]) or len(numpy.atleast_1d(cFuncs[iKey])) == 1:
                 cFuncs[iKey] += 1e-40j
                 con = self._userObjConWrap(cFuncs, False, passThroughFuncs)
                 cFuncs[iKey] -= 1e-40j
