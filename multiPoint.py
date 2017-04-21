@@ -1,3 +1,4 @@
+from __future__ import print_function
 #!/usr/bin/python
 """
 multiPoint.py -- A python utility for aiding complex multi-point optimizations
@@ -117,8 +118,8 @@ class multiPoint(object):
             memberSizes = numpy.ones(nMembers)*memberSizes[0]
         else:
             if len(memberSizes) != nMembers:
-                print 'Error: The suppliled memberSizes list is not the\
- correct length'
+                print('Error: The suppliled memberSizes list is not the\
+ correct length')
                 sys.exit(1)
             # end if
         # end if
@@ -384,7 +385,7 @@ directories',comm=self.gcomm)
                 
                 # First check to see if anything is actually returned in the objFunc(x)
                 if res == None:
-                    print 'No values returned in objective function!'
+                    print('No values returned in objective function!')
                     sys.exit(1)
 
                 # First check to see if all the functionals were
