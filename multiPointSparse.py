@@ -58,6 +58,19 @@ class MPError(Exception):
 # Utility create groups function
 # =============================================================================
 
+def dkeys(dict):
+    """ Utility function to return the keys of a dict in sorted order
+    so that the iteration order is guaranteed to be the same. Blame
+    python3 for being FUBAR'd."""
+
+    return sorted(list(dict.keys()))
+
+def skeys(set):
+    """ Utility function to return the items of a set in sorted order
+    so that the iteration order is guaranteed to be the same. Blame
+    python3 for being FUBAR'd."""
+    return sorted(list(set))
+    
 def createGroups(sizes, comm):
     """
     Create groups takes a list of sizes, and creates new MPI
@@ -82,11 +95,11 @@ def createGroups(sizes, comm):
     cumGroups = [0]*(nGroups+1)
     cumGroups[0] = 0   
 
-    for igroup in xrange(nGroups):
+    for igroup in range(nGroups):
         cumGroups[igroup+1] = cumGroups[igroup] + sizes[igroup]
 
     # Determine the member_key for each processor
-    for igroup in xrange(nGroups):
+    for igroup in range(nGroups):
         if comm.rank >= cumGroups[igroup] and \
                comm.rank < cumGroups[igroup+1]:
             member_key = igroup
@@ -313,7 +326,7 @@ class multiPointSparse(object):
 
         # First we determine the total number of required procs:
         nProc = 0
-        for setName in self.pSet:
+        for setName in dkeys(self.pSet):
             nProc += self.pSet[setName].nProc
 
         # Check the sizes
@@ -324,7 +337,7 @@ class multiPointSparse(object):
         # Create a cumulative size array
         setCount = len(self.pSet)
         setSizes = numpy.zeros(setCount)
-        for setName in self.pSet:
+        for setName in dkeys(self.pSet):
             setSizes[self.pSet[setName].setID] = self.pSet[setName].nProc
         
         cumSets = numpy.zeros(setCount+1,'intc')
@@ -334,7 +347,7 @@ class multiPointSparse(object):
         setFlags = {}
 
         # Determine the member_key for each processor
-        for key in self.pSet:
+        for key in dkeys(self.pSet):
             if self.gcomm.rank >= cumSets[self.pSet[key].setID] and \
                     self.gcomm.rank < cumSets[self.pSet[key].setID+1]:
                 memberKey = self.pSet[key].setID
@@ -346,7 +359,7 @@ class multiPointSparse(object):
 
         # Set this new_comm into each pSet and let each procSet create
         # its own split:
-        for key in self.pSet:
+        for key in dkeys(self.pSet):
             if setFlags[key]:
 
                 self.pSet[key].gcomm = setComm
@@ -360,11 +373,11 @@ class multiPointSparse(object):
 
         self.setFlags = setFlags
         # Now just append the dummy procSets:
-        for key in self.dummyPSet:
+        for key in skeys(self.dummyPSet):
             self.setFlags[key] = False
             
         self.pSetRoot = {}
-        for key in self.pSet:
+        for key in dkeys(self.pSet):
             self.pSetRoot[key] = cumSets[self.pSet[key].setID]
 
         return comm, setComm, setFlags, groupFlags, ptID
@@ -380,7 +393,7 @@ class multiPointSparse(object):
             The name of the set that this processor belongs to.
         """
         
-        for iset in self.setFlags:
+        for iset in dkeys(self.setFlags):
             if self.setFlags[iset]:
                 return iset
 
@@ -421,7 +434,7 @@ class multiPointSparse(object):
             return
 
         ptDirs = {}
-        for key in self.pSet:
+        for key in dkeys(self.pSet):
             ptDirs[key] = []
             for i in range(self.pSet[key].nMembers):
                 dirName = rootDir + '/%s_%d'% (self.pSet[key].setName, i)
@@ -572,17 +585,17 @@ class multiPointSparse(object):
         # Since there is no distinction between objective(s) and
         # constraints just put everything in conKeys, including the
         # objective(s)
-        for iCon in optProb.constraints:
+        for iCon in dkeys(optProb.constraints):
             if not optProb.constraints[iCon].linear:
                 self.conKeys.add(iCon)
                 self.outputWRT[iCon] = optProb.constraints[iCon].wrt
                 self.outputSize[iCon] = optProb.constraints[iCon].ncon
-        for iObj in optProb.objectives:
+        for iObj in dkeys(optProb.objectives):
             self.conKeys.add(iObj)
             self.outputWRT[iObj] = list(optProb.variables.keys())
             self.outputSize[iObj] = 1
 
-        for dvGroup in optProb.variables:
+        for dvGroup in dkeys(optProb.variables):
             ss = optProb.dvOffset[dvGroup]
             self.dvSize[dvGroup] = ss[1] - ss[0]
             
@@ -644,7 +657,7 @@ class multiPointSparse(object):
         x : dict
             Dictionary of variables returned from pyOptSparse
         """
-        for key in self.pSet:
+        for key in dkeys(self.pSet):
             if self.setFlags[key]: 
                 # Run "obj" funtion to generate functionals
                 res = {'fail':False}
@@ -665,7 +678,7 @@ class multiPointSparse(object):
             # communication pattern
 
             # Send all the keys
-            allKeys = self.gcomm.allgather(list(res.keys()))
+            allKeys = self.gcomm.allgather(sorted(list(res.keys())))
            
             self.objCommPattern = dict()  
 
@@ -679,7 +692,7 @@ class multiPointSparse(object):
               
         # Perform Communication of functionals
         allFuncs = dict()
-        for key in self.objCommPattern:
+        for key in dkeys(self.objCommPattern):
             if self.objCommPattern[key] == self.gcomm.rank:
                 tmp = self.gcomm.bcast(res[key], root=self.objCommPattern[key])
             else:
@@ -739,7 +752,7 @@ class multiPointSparse(object):
         x : dict
             Dictionary of variables returned from pyOptSparse
         """
-        for key in self.pSet:
+        for key in dkeys(self.pSet):
             if self.setFlags[key]: 
                 # Run "sens" funtion to functionals sensitivities
                 res = {'fail':False}
@@ -760,7 +773,7 @@ class multiPointSparse(object):
             # communication pattern
 
             # Send all the keys
-            allKeys = self.gcomm.allgather(list(res.keys()))
+            allKeys = self.gcomm.allgather(sorted(list(res.keys())))
            
             self.sensCommPattern = dict()  
 
@@ -774,7 +787,7 @@ class multiPointSparse(object):
 
         # Perform Communication of functional (derivatives)
         funcSens = dict()
-        for key in self.sensCommPattern:
+        for key in dkeys(self.sensCommPattern):
             if self.sensCommPattern[key] == self.gcomm.rank:
                 tmp = self.gcomm.bcast(res[key], root=self.sensCommPattern[key])
             else:
@@ -812,21 +825,21 @@ class multiPointSparse(object):
             gcon[cKey] = funcSens[cKey]
 
         # Setup zeros for the output keys:
-        for oKey in self.outputKeys:
+        for oKey in skeys(self.outputKeys):
             gcon[oKey] = {}
             # Only loop over the DVsets that this constraint has:
             for dvSet in self.outputWRT[oKey]:
                 gcon[oKey][dvSet] = numpy.zeros(
                     (self.outputSize[oKey], self.dvSize[dvSet]))
 
-        for iKey in self.inputKeys: # Keys to peturb:
+        for iKey in skeys(self.inputKeys): # Keys to peturb:
             if numpy.isscalar(cFuncs[iKey]) or len(numpy.atleast_1d(cFuncs[iKey])) == 1:
                 cFuncs[iKey] += 1e-40j
                 con = self._userObjConWrap(cFuncs, False, passThroughFuncs)
                 cFuncs[iKey] -= 1e-40j
 
                 # Extract the derivative of output key variables 
-                for oKey in self.outputKeys: 
+                for oKey in skeys(self.outputKeys): 
                     n = self.outputSize[oKey] 
                     for dvSet in self.outputWRT[oKey]:
                         if dvSet in funcSens[iKey]:
@@ -841,8 +854,9 @@ class multiPointSparse(object):
                     cFuncs[iKey][i] -= 1e-40j
                     
                     # Extract the derivative of output key variables 
-                    for oKey in self.outputKeys: 
+                    for oKey in skeys(self.outputKeys): 
                         n = self.outputSize[oKey]
+
                         for dvSet in self.outputWRT[oKey]:
                             if dvSet in funcSens[iKey]:
                                 deriv = (numpy.imag(con[oKey])/1e-40).reshape((n, 1))
@@ -857,7 +871,7 @@ class multiPointSparse(object):
 
     def _complexifyFuncs(self, funcs, keys):
         """ Convert functionals to complex type"""
-        for key in keys:
+        for key in skeys(keys):
             if not numpy.isscalar(funcs[key]):
                 funcs[key] = numpy.array(funcs[key]).astype('D')
 
@@ -866,7 +880,7 @@ class multiPointSparse(object):
     def _extractKeys(self, funcs, keys):
         """Return a copy of the dict with just the keys given in keys"""
         newDict = {}
-        for key in keys:
+        for key in skeys(keys):
             newDict[key] = copy.deepcopy(funcs[key])
         return newDict
 
