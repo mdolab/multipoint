@@ -23,6 +23,7 @@ import inspect
 import types
 import copy
 import sys
+import io
 try:
     from collections import OrderedDict
 except ImportError:
@@ -120,6 +121,9 @@ def redirectIO(f):
     original_stdout_fd = sys.stdout.fileno()
     original_stderr_fd = sys.stderr.fileno()
 
+    sys.stdout.flush()
+    sys.stderr.flush()
+
     # Flush and close sys.stdout/err - also closes the file descriptors (fd)
     sys.stdout.close()
     sys.stderr.close()
@@ -129,13 +133,15 @@ def redirectIO(f):
     os.dup2(f.fileno(), original_stderr_fd)
 
     # Create a new sys.stdout that points to the redirected fd
-    sys.stdout = os.fdopen(original_stdout_fd, 'wb', 0) # 0 makes them unbuffered
-    sys.stderr = os.fdopen(original_stderr_fd, 'wb', 0)
 
-    # For Python 3.x
-    # sys.stdout = io.TextIOWrapper(os.fdopen(original_stdout_fd, 'wb'))
-    # sys.stderr = io.TextIOWrapper(os.fdopen(original_stdout_fd, 'wb'))
-
+    if sys.version_info >= (3, 0):
+        # For Python 3.x
+        sys.stdout = io.TextIOWrapper(os.fdopen(original_stdout_fd, 'wb'))
+        sys.stderr = io.TextIOWrapper(os.fdopen(original_stderr_fd, 'wb'))
+    else:
+        sys.stdout = os.fdopen(original_stdout_fd, 'wb', 0) # 0 makes them unbuffered
+        sys.stderr = os.fdopen(original_stderr_fd, 'wb', 0)
+        
 # =============================================================================
 # MultiPoint Class
 # =============================================================================
