@@ -849,7 +849,7 @@ class multiPointSparse(object):
                     n = self.outputSize[oKey] 
                     for dvSet in self.outputWRT[oKey]:
                         if dvSet in funcSens[iKey]:
-                            deriv = (numpy.imag(con[oKey])/1e-40).reshape((n, 1))
+                            deriv = (numpy.imag(numpy.atleast_1d(con[oKey]))/1e-40).reshape((n, 1))
                             gcon[oKey][dvSet] += numpy.dot(
                                 deriv, numpy.atleast_2d(funcSens[iKey][dvSet]))
 
@@ -865,7 +865,7 @@ class multiPointSparse(object):
 
                         for dvSet in self.outputWRT[oKey]:
                             if dvSet in funcSens[iKey]:
-                                deriv = (numpy.imag(con[oKey])/1e-40).reshape((n, 1))
+                                deriv = (numpy.imag(numpy.atleast_1d(con[oKey]))/1e-40).reshape((n, 1))
                                 gcon[oKey][dvSet] += \
                                     numpy.dot(deriv, numpy.atleast_2d(
                                         funcSens[iKey][dvSet][i, :]))
