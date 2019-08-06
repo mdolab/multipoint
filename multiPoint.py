@@ -217,7 +217,7 @@ class multiPoint(object):
         # end if
         
         cumSets = numpy.zeros(self.setCount+1,'intc')
-        for i in xrange(self.setCount):
+        for i in range(self.setCount):
             cumSets[i+1] = cumSets[i] + setSizes[i]
         # end for
 
@@ -286,7 +286,7 @@ directories',comm=self.gcomm)
         pt_dirs = {}
         for key in self.pSet.keys():
             pt_dirs[key] = []
-            for i in xrange(self.pSet[key].nMembers):
+            for i in range(self.pSet[key].nMembers):
                 dir_name = root_dir + '/%s_%d'%(self.pSet[key].setName,i)
                 pt_dirs[key].append(dir_name)
 
@@ -420,7 +420,7 @@ directories',comm=self.gcomm)
                                                len(res[func])))
                         # end if
 
-                        for i in xrange(self.pSet[key].nMembers):
+                        for i in range(self.pSet[key].nMembers):
                             if self.pSet[key].groupID == i and \
                                     self.pSet[key].comm.rank == 0:
                                 val[i] = self.pSet[key].gcomm.bcast(
@@ -538,7 +538,7 @@ directories',comm=self.gcomm)
                                                res[func].shape[1]))
                         # end if
 
-                        for i in xrange(self.pSet[key].nMembers):
+                        for i in range(self.pSet[key].nMembers):
                             if self.pSet[key].groupID == i and \
                                     self.pSet[key].comm.rank == 0:
                                 val[i] = self.pSet[key].gcomm.bcast(
@@ -608,7 +608,7 @@ directories',comm=self.gcomm)
         iCount = 0
         for key in self.functionals:
             if key != 'fail':
-                for i in xrange(len(self.functionals[key])):
+                for i in range(len(self.functionals[key])):
                     if numpy.mod(iCount, self.gcomm.size) == self.gcomm.rank:
                         refVal = self.functionals[key][i]
                         self.functionals[key][i] += 1e-40j
@@ -621,7 +621,7 @@ directories',comm=self.gcomm)
                         self.functionals[key][i] = refVal
 
                         g_obj += d_obj_df * derivatives[key][i, :]
-                        for j in xrange(len(d_con_df)):
+                        for j in range(len(d_con_df)):
                             g_con[j, :] += d_con_df[j] * derivatives[key][i, :]
                         # end for
                     # end if
@@ -701,7 +701,7 @@ class procSet(object):
         # Create a cumulative size array
         cumGroups = numpy.zeros(self.nMembers + 1,'intc')
 
-        for i in xrange(self.nMembers):
+        for i in range(self.nMembers):
             cumGroups[i+1] = cumGroups[i] + self.memberSizes[i]
         # end for
 
@@ -709,7 +709,7 @@ class procSet(object):
         # Determine the member_key (m_key) for each processor
             
         m_key = None
-        for i in xrange(self.nMembers):
+        for i in range(self.nMembers):
             if self.gcomm.rank >= cumGroups[i] and \
                     self.gcomm.rank < cumGroups[i+1]:
                 m_key = i
@@ -717,11 +717,11 @@ class procSet(object):
         # end for
                 
         #if m_key is None:
-        #print '[%d] Split is Screwed!'%(MPI.COMM_WORLD.rank)
-        #print '[%d] cumGroups:'%(MPI.COMM_WORLD.rank),cumGroups
-        #print '[%d] nMmembers:'%(MPI.COMM_WORLD.rank),self.nMembers
-        #print '[%d] Rank     :'%(MPI.COMM_WORLD.rank),self.gcomm.rank
-        #print '[%d] Size     :'%(MPI.COMM_WORLD.rank),self.gcomm.size
+        #print('[%d] Split is Screwed!'%(MPI.COMM_WORLD.rank))
+        #print('[%d] cumGroups:'%(MPI.COMM_WORLD.rank),cumGroups)
+        #print('[%d] nMmembers:'%(MPI.COMM_WORLD.rank),self.nMembers)
+        #print('[%d] Rank     :'%(MPI.COMM_WORLD.rank),self.gcomm.rank)
+        #print('[%d] Size     :'%(MPI.COMM_WORLD.rank),self.gcomm.size)
 
 
         self.comm = self.gcomm.Split(m_key)
