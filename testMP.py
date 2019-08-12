@@ -6,6 +6,7 @@ tempMP.py --- An example for using the multiPoint analysis module
 # =============================================================================
 # Standard Python modules
 # =============================================================================
+from __future__ import print_function
 import sys, os, time
 
 # =============================================================================
@@ -18,7 +19,7 @@ import numpy
 # Extension modules
 # =============================================================================
 from mdo_import_helper import MPI, mpiPrint
-import multiPoint
+from . import multiPoint
 
 # First create multipoint object on the communicator that will contain
 # all multipoint processes. This is often MPI.COMM_WORLD.

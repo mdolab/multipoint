@@ -738,5 +738,5 @@ class procSet(object):
 # mutliPoint Test
 #==============================================================================
 if __name__ == '__main__':
-    import testMP
+    from . import testMP
     

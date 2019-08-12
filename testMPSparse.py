@@ -1,5 +1,6 @@
 # Standard Python modules
 # =============================================================================
+from __future__ import print_function
 import os, sys, copy, time
 
 # =============================================================================
@@ -16,7 +17,7 @@ from adflow import *
 from pywarp import *
 from pygeo import *
 from pyspline import *
-import multiPointSparse
+from . import multiPointSparse
 from pyoptsparse import Optimization, pySNOPT
 
 # ================================================================
