@@ -6,7 +6,6 @@ tempMP.py --- An example for using the multiPoint analysis module
 # =============================================================================
 # Standard Python modules
 # =============================================================================
-from __future__ import print_function
 import sys, os, time
 
 # =============================================================================

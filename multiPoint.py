@@ -1,4 +1,3 @@
-from __future__ import print_function
 #!/usr/bin/python
 """
 multiPoint.py -- A python utility for aiding complex multi-point optimizations
