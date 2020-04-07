@@ -16,7 +16,7 @@ from adflow import *
 from pywarp import *
 from pygeo import *
 from pyspline import *
-import multiPointSparse
+from . import multiPointSparse
 from pyoptsparse import Optimization, pySNOPT
 
 # ================================================================
@@ -162,7 +162,7 @@ c1 = pySpline.curve(X=X,k=2)
 
 def twist(val,geo):
     # Set all the twist values
-    for i in xrange(nTwist):
+    for i in range(nTwist):
         geo.rot_z[0].coef[i] = val[i]
    
     return
@@ -255,9 +255,9 @@ low_ind = []
 # Note we CAN add "constraints" to control points that may not be added
 # as above. 
 
-for ivol in xrange(FFD.nVol):
+for ivol in range(FFD.nVol):
     sizes = FFD.topo.l_index[ivol].shape
-    for k in xrange(sizes[2]): # Go out the 'z' or 'k' direction
+    for k in range(sizes[2]): # Go out the 'z' or 'k' direction
         up_ind.append(FFD.topo.l_index[ivol][0,-1,k])  # Le control points
         low_ind.append(FFD.topo.l_index[ivol][0,0,k])
 
@@ -274,8 +274,8 @@ DVCon.addLeTeCon(DVGeo,up_ind,low_ind)
 def cruiseObj(x):
     
     if MPI.COMM_WORLD.rank == 0:
-        print 'Fun Obj:'
-        print x
+        print('Fun Obj:')
+        print(x)
         
     # Set geometric design variables from optimizer
     DVGeo.setValues(x, scaled=True)
@@ -285,7 +285,7 @@ def cruiseObj(x):
    
     funcs = {}
     funcs['fail'] = False
-    for i in xrange(nFlowCases):
+    for i in range(nFlowCases):
         if i%nGroup == ptID:
             fc = flowCases[i]
             aeroProblems[fc]._flows.alpha = x['alpha_'+fc]
@@ -310,7 +310,7 @@ def cruiseSens(x, fobj, fcon):
     fail = 0
     funcSens = {}
 
-    for i in xrange(nFlowCases):
+    for i in range(nFlowCases):
         if i%nGroup == ptID:
             fc = flowCases[i]
             # --------- cl Adjoint -----------
@@ -336,7 +336,7 @@ def objCon(funcs):
     # Assemble the objective and any additional constraints:
 
     funcs['cd'] = 0.0
-    for i in xrange(nFlowCases):
+    for i in range(nFlowCases):
         fc = flowCases[i]
         funcs['cd'] += funcs['cd_'+fc]/nFlowCases
 
@@ -373,7 +373,7 @@ opt_prob.addObj('cd')
 
 # Check opt problem:
 if MPI.COMM_WORLD.rank == 0:
-    print opt_prob
+    print(opt_prob)
     opt_prob.printSparsity()
 
 # The MP object needs the 'obj' and 'sens' function for each proc set,

@@ -18,7 +18,7 @@ import numpy
 # Extension modules
 # =============================================================================
 from mdo_import_helper import MPI, mpiPrint
-import multiPoint
+from . import multiPoint
 
 # First create multipoint object on the communicator that will contain
 # all multipoint processes. This is often MPI.COMM_WORLD.
@@ -232,14 +232,14 @@ x['v2'] = 2
 obj_value, con_values, fail = MP.fun_obj(x)
 
 if MPI.COMM_WORLD.rank == 0:
-    print 'obj_value:',obj_value
-    print 'con_values:',con_values
-    print 'Fail Flag:',fail
+    print('obj_value:',obj_value)
+    print('con_values:',con_values)
+    print('Fail Flag:',fail)
     
 g_obj, g_con, fail = MP.sens(x, obj_value, con_values)
 
 if MPI.COMM_WORLD.rank == 0:
-    print 'g_obj',g_obj
-    print 'g_con',g_con
-    print 'Fail Flag',fail
+    print('g_obj',g_obj)
+    print('g_con',g_con)
+    print('Fail Flag',fail)
 
