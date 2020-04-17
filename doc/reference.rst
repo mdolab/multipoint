@@ -3,7 +3,7 @@
 API Reference
 =============
 
-.. currentmodule:: multipoint.multiPointSparse
+.. currentmodule:: multiPointSparse
 
 .. autoclass:: multiPointSparse
     :members:
