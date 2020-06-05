@@ -32,7 +32,7 @@ one copy of code ``B``. The analysis path would look like::
 Lets also assume, that the first copy of code ``A`` requires 3
 processors, the second copy of code ``A`` requires 2 processors and
 the copy of code ``B`` requires 4 processors. For this case, we would
-require ``3 + 2 + 4 = 7`` total processors. Scripts using
+require ``3 + 2 + 4 = 9`` total processors. Scripts using
 ``MultiPointSparse`` must be called with precisely the correct
 number of processors. 
 
