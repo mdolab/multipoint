@@ -32,14 +32,31 @@ one copy of code ``B``. The analysis path would look like::
 Lets also assume, that the first copy of code ``A`` requires 3
 processors, the second copy of code ``A`` requires 2 processors and
 the copy of code ``B`` requires 4 processors. For this case, we would
-require ``3 + 2 + 4 = 7`` total processors. Scripts using
+require ``3 + 2 + 4 = 9`` total processors. Scripts using
 ``MultiPointSparse`` must be called with precisely the correct
 number of processors. 
 
-  >>> from multipoint import * 
-  >>> MP = multiPointSparse(MPI.COMM_WORLD)
-  >>> MP.addProcessorSet('codeA', 2, [3, 2])
-  >>> MP.addProcessorSet('codeB', 1, 4)
+    >>> from mpi4py import MPI
+    >>> from multipoint import multiPointSparse
+    >>> MP = multiPointSparse(MPI.COMM_WORLD)
+    >>> MP.addProcessorSet('codeA', 2, [3, 2])
+    >>> MP.addProcessorSet('codeB', 1, 4)
+    >>> comm, setComm, setFlags, groupFlags, ptID = MP.createCommunicators()
+    >>> setName = MP.getSetName()
+
+At this point, you should have the following if you executed the code with 9 processors::
+
+    >>> print("setName={}, comm.rank={}, comm.size={}, setComm.rank={}, setComm.size={}, setFlags={}, ptID={}".format(setName, comm.rank, comm.size, setComm.rank, setComm.size, setFlags, ptID))
+    setName=codeA, comm.rank=0, comm.size=3, setComm.rank=0, setComm.size=5, setFlags={'codeA': True, 'codeB': False}, ptID=0
+    setName=codeA, comm.rank=1, comm.size=3, setComm.rank=1, setComm.size=5, setFlags={'codeA': True, 'codeB': False}, ptID=0
+    setName=codeA, comm.rank=2, comm.size=3, setComm.rank=2, setComm.size=5, setFlags={'codeA': True, 'codeB': False}, ptID=0
+    setName=codeA, comm.rank=0, comm.size=2, setComm.rank=3, setComm.size=5, setFlags={'codeA': True, 'codeB': False}, ptID=1
+    setName=codeA, comm.rank=1, comm.size=2, setComm.rank=4, setComm.size=5, setFlags={'codeA': True, 'codeB': False}, ptID=1
+    setName=codeB, comm.rank=0, comm.size=4, setComm.rank=0, setComm.size=4, setFlags={'codeA': False, 'codeB': True}, ptID=0
+    setName=codeB, comm.rank=1, comm.size=4, setComm.rank=1, setComm.size=4, setFlags={'codeA': False, 'codeB': True}, ptID=0
+    setName=codeB, comm.rank=2, comm.size=4, setComm.rank=2, setComm.size=4, setFlags={'codeA': False, 'codeB': True}, ptID=0
+    setName=codeB, comm.rank=3, comm.size=4, setComm.rank=3, setComm.size=4, setFlags={'codeA': False, 'codeB': True}, ptID=0
+
 
 The input to each of the Objective Functions is the (unmodified) dictionary of
 optimization variables from pyOptSparse. Each code is then required to
@@ -60,17 +77,17 @@ objective or constraints, these values must be given a unique name.
 A simple name-mangling scheme is to simply use the ``ptID`` variable that
 is returned from the call to `createCommunicators`::
 
-  def objA(x):
-      funcs['A_%d'%ptID] = function_of_x()
+    def objA(x):
+        funcs['A_%d'%ptID] = function_of_x()
 
-      return funcs
+        return funcs
 
 A similar thing can be done for ``B``::
 
-  def objB(x):
-      funcs['B_%d'%ptID] = function_of_x()
+    def objB(x):
+        funcs['B_%d'%ptID] = function_of_x()
 
-      return funcs
+        return funcs
 
 A ``processorSet`` is characterized by a single "objective" and
 "sensitivity" function. For each ``processorSet`` we must supply Python
@@ -108,22 +125,20 @@ to use the remaining functions in ``all funcs`` (the ``input keys``)
 to compute the remainder of the required constraints (``output keys``)
 and objective. For example::
 
-  def objcon(funcs):
-     fobj = 0.0
-     for i in range(2):
-         fobj += funcs['A_%d'%i]
+    def objcon(funcs):
+        fobj = 0.0
+        for i in range(2):
+            fobj += funcs['A_%d'%i]
 
-     fobj /= funcs[B_0]
-
-     fcon['B_con'] = funcs[B_0]/funcs[A_0]
-
-     return fobj, fcon
+        fobj /= funcs[B_0]
+        fcon['B_con'] = funcs[B_0]/funcs[A_0]
+        return fobj, fcon
 
 There all three values contribute to the objective, while ``A_0`` and
 ``B_0`` combine to form the constraint ``B_con``. This example has no
 ``pass-though keys``.
 
- Generally speaking, the computations in objcon should be simple and
+Generally speaking, the computations in objcon should be simple and
 not overally computationally intensive. The sensitivity of the ``output
 keys`` with respect to the ``input keys`` is computed automatically by
 ``multiPointSparse`` using the complex step method.
