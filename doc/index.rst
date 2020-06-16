@@ -14,6 +14,12 @@ Contents:
 ``multiPointSparse`` is a helper module for doing multipoint
 optimizations. The documentaion ``multiPoint`` is given below.
 
+To install, first clone the repo, then go into the root directory and type::
+
+   pip install .
+
+For stability we recommend cloning or checking out a tagged release.
+
 
 .. toctree::
    :maxdepth: 2
