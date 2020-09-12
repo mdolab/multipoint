@@ -7,7 +7,7 @@ import types
 import copy
 from collections import OrderedDict
 
-import numpy
+import numpy as np
 from mpi4py import MPI
 
 from .utils import MPError, dkeys, skeys
@@ -158,9 +158,9 @@ class multiPointSparse(object):
             self.dummyPSet.add(setName)
         else:
             nMembers = int(nMembers)
-            memberSizes = numpy.atleast_1d(memberSizes)
+            memberSizes = np.atleast_1d(memberSizes)
             if len(memberSizes) == 1:
-                memberSizes = numpy.ones(nMembers) * memberSizes[0]
+                memberSizes = np.ones(nMembers) * memberSizes[0]
             else:
                 if len(memberSizes) != nMembers:
                     raise MPError("The suppllied memberSizes list is not the correct length.")
@@ -210,11 +210,11 @@ class multiPointSparse(object):
 
         # Create a cumulative size array
         setCount = len(self.pSet)
-        setSizes = numpy.zeros(setCount)
+        setSizes = np.zeros(setCount)
         for setName in dkeys(self.pSet):
             setSizes[self.pSet[setName].setID] = self.pSet[setName].nProc
 
-        cumSets = numpy.zeros(setCount + 1, "intc")
+        cumSets = np.zeros(setCount + 1, "intc")
         for i in range(setCount):
             cumSets[i + 1] = cumSets[i] + setSizes[i]
 
@@ -679,10 +679,10 @@ class multiPointSparse(object):
         # Add in the sensitivity of the extra DVs as Funcs...This will
         # just be an identity matrix
         for dv in self.dvsAsFuncs:
-            if numpy.isscalar(x[dv]) or len(numpy.atleast_1d(x[dv])) == 1:
-                funcSens[dv] = {dv: numpy.eye(1)}
+            if np.isscalar(x[dv]) or len(np.atleast_1d(x[dv])) == 1:
+                funcSens[dv] = {dv: np.eye(1)}
             else:
-                funcSens[dv] = {dv: numpy.eye(len(x[dv]))}
+                funcSens[dv] = {dv: np.eye(len(x[dv]))}
 
         # Now we have to perform the CS loop over the user-supplied
         # objCon function to generate the derivatives of our final
@@ -707,10 +707,10 @@ class multiPointSparse(object):
             gcon[oKey] = {}
             # Only loop over the DVsets that this constraint has:
             for dvSet in self.outputWRT[oKey]:
-                gcon[oKey][dvSet] = numpy.zeros((self.outputSize[oKey], self.dvSize[dvSet]))
+                gcon[oKey][dvSet] = np.zeros((self.outputSize[oKey], self.dvSize[dvSet]))
 
         for iKey in skeys(self.inputKeys):  # Keys to peturb:
-            if numpy.isscalar(cFuncs[iKey]) or len(numpy.atleast_1d(cFuncs[iKey])) == 1:
+            if np.isscalar(cFuncs[iKey]) or len(np.atleast_1d(cFuncs[iKey])) == 1:
                 cFuncs[iKey] += 1e-40j
                 con = self._userObjConWrap(cFuncs, False, passThroughFuncs)
                 cFuncs[iKey] -= 1e-40j
@@ -720,8 +720,8 @@ class multiPointSparse(object):
                     n = self.outputSize[oKey]
                     for dvSet in self.outputWRT[oKey]:
                         if dvSet in funcSens[iKey]:
-                            deriv = (numpy.imag(numpy.atleast_1d(con[oKey])) / 1e-40).reshape((n, 1))
-                            gcon[oKey][dvSet] += numpy.dot(deriv, numpy.atleast_2d(funcSens[iKey][dvSet]))
+                            deriv = (np.imag(np.atleast_1d(con[oKey])) / 1e-40).reshape((n, 1))
+                            gcon[oKey][dvSet] += np.dot(deriv, np.atleast_2d(funcSens[iKey][dvSet]))
 
             else:
                 for i in range(len(cFuncs[iKey])):
@@ -735,8 +735,8 @@ class multiPointSparse(object):
 
                         for dvSet in self.outputWRT[oKey]:
                             if dvSet in funcSens[iKey]:
-                                deriv = (numpy.imag(numpy.atleast_1d(con[oKey])) / 1e-40).reshape((n, 1))
-                                gcon[oKey][dvSet] += numpy.dot(deriv, numpy.atleast_2d(funcSens[iKey][dvSet][i, :]))
+                                deriv = (np.imag(np.atleast_1d(con[oKey])) / 1e-40).reshape((n, 1))
+                                gcon[oKey][dvSet] += np.dot(deriv, np.atleast_2d(funcSens[iKey][dvSet][i, :]))
 
         gcon = self.gcomm.bcast(gcon, root=0)
         fail = self.gcomm.bcast(fail, root=0)
@@ -746,8 +746,8 @@ class multiPointSparse(object):
     def _complexifyFuncs(self, funcs, keys):
         """ Convert functionals to complex type"""
         for key in skeys(keys):
-            if not numpy.isscalar(funcs[key]):
-                funcs[key] = numpy.array(funcs[key]).astype("D")
+            if not np.isscalar(funcs[key]):
+                funcs[key] = np.array(funcs[key]).astype("D")
 
         return funcs
 
@@ -786,7 +786,7 @@ class procSet(object):
         self.setName = setName
         self.nMembers = nMembers
         self.memberSizes = memberSizes
-        self.nProc = numpy.sum(self.memberSizes)
+        self.nProc = np.sum(self.memberSizes)
         self.gcomm = None
         self.objFunc = []
         self.sensFunc = []
@@ -802,7 +802,7 @@ class procSet(object):
         this comm as well
         """
         # Create a cumulative size array
-        cumGroups = numpy.zeros(self.nMembers + 1, "intc")
+        cumGroups = np.zeros(self.nMembers + 1, "intc")
 
         for i in range(self.nMembers):
             cumGroups[i + 1] = cumGroups[i] + self.memberSizes[i]
@@ -814,7 +814,7 @@ class procSet(object):
                 m_key = i
 
         self.comm = self.gcomm.Split(m_key)
-        self.groupFlags = numpy.zeros(self.nMembers, bool)
+        self.groupFlags = np.zeros(self.nMembers, bool)
         self.groupFlags[m_key] = True
         self.groupID = m_key
         self.cumGroups = cumGroups

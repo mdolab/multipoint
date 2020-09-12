@@ -4,7 +4,7 @@
 import sys
 import os
 import types
-import numpy
+import numpy as np
 from mpi4py import MPI
 from .utils import mpiPrint
 
@@ -85,9 +85,9 @@ class multiPoint(object):
         """
 
         nMembers = int(nMembers)
-        memberSizes = numpy.atleast_1d(memberSizes)
+        memberSizes = np.atleast_1d(memberSizes)
         if len(memberSizes) == 1:
-            memberSizes = numpy.ones(nMembers) * memberSizes[0]
+            memberSizes = np.ones(nMembers) * memberSizes[0]
         else:
             if len(memberSizes) != nMembers:
                 print("Error: The suppllied memberSizes list is not the correct length")
@@ -184,12 +184,12 @@ class multiPoint(object):
         # end if
 
         # Create a cumulative size array
-        setSizes = numpy.zeros(self.setCount)
+        setSizes = np.zeros(self.setCount)
         for setName in self.pSet.keys():
             setSizes[self.pSet[setName].setID] = self.pSet[setName].nProc
         # end if
 
-        cumSets = numpy.zeros(self.setCount + 1, "intc")
+        cumSets = np.zeros(self.setCount + 1, "intc")
         for i in range(self.setCount):
             cumSets[i + 1] = cumSets[i] + setSizes[i]
         # end for
@@ -341,7 +341,7 @@ class multiPoint(object):
             self.callCounter += 1
 
             f_obj = 0
-            f_con = numpy.zeros(self.numCon)
+            f_con = np.zeros(self.numCon)
             fail = 0
             return f_obj, f_con, fail
         # end if
@@ -386,9 +386,9 @@ class multiPoint(object):
                     # Check to see if it needs tobe communicated:
                     if self.pSet[key].functionals[func]["unique"]:
                         if r == 0:
-                            val = numpy.zeros(self.pSet[key].nMembers)
+                            val = np.zeros(self.pSet[key].nMembers)
                         else:
-                            val = numpy.zeros((self.pSet[key].nMembers, len(res[func])))
+                            val = np.zeros((self.pSet[key].nMembers, len(res[func])))
                         # end if
 
                         for i in range(self.pSet[key].nMembers):
@@ -403,7 +403,7 @@ class multiPoint(object):
 
                     else:  # Does not need to communicated...simply copy
                         if self.pSet[key].gcomm.rank == 0:
-                            setFunctionals[func] = numpy.atleast_1d(res[func])
+                            setFunctionals[func] = np.atleast_1d(res[func])
                         # end if
                     # end if
                 # end for
@@ -494,9 +494,9 @@ class multiPoint(object):
 
                     if self.pSet[key].functionals[func]["unique"]:
                         if r == 0:
-                            val = numpy.zeros((self.pSet[key].nMembers, len(res[func])))
+                            val = np.zeros((self.pSet[key].nMembers, len(res[func])))
                         else:
-                            val = numpy.zeros((self.pSet[key].nMembers, res[func].shape[0], res[func].shape[1]))
+                            val = np.zeros((self.pSet[key].nMembers, res[func].shape[0], res[func].shape[1]))
                         # end if
 
                         for i in range(self.pSet[key].nMembers):
@@ -511,7 +511,7 @@ class multiPoint(object):
 
                     else:  # Does not need to communicated...simply copy
                         if self.pSet[key].gcomm.rank == 0:
-                            setDerivatives[func] = numpy.atleast_2d(res[func])
+                            setDerivatives[func] = np.atleast_2d(res[func])
                         # end if
                     # end if
                 # end for
@@ -557,18 +557,18 @@ class multiPoint(object):
         # end for
         nCon = len(self.constraints(self.functionals, False))
 
-        g_obj = numpy.zeros(nDV)
-        g_con = numpy.zeros((nCon, nDV))
+        g_obj = np.zeros(nDV)
+        g_con = np.zeros((nCon, nDV))
         iCount = 0
         for key in self.functionals:
             if key != "fail":
                 for i in range(len(self.functionals[key])):
-                    if numpy.mod(iCount, self.gcomm.size) == self.gcomm.rank:
+                    if np.mod(iCount, self.gcomm.size) == self.gcomm.rank:
                         refVal = self.functionals[key][i]
                         self.functionals[key][i] += 1e-40j
 
-                        d_obj_df = numpy.imag(self.objective(self.functionals, False)) * 1e40
-                        d_con_df = numpy.imag(self.constraints(self.functionals, False)) * 1e40
+                        d_obj_df = np.imag(self.objective(self.functionals, False)) * 1e40
+                        d_con_df = np.imag(self.constraints(self.functionals, False)) * 1e40
 
                         self.functionals[key][i] = refVal
 
@@ -581,8 +581,8 @@ class multiPoint(object):
                 # end for
             # end if
         # end for
-        g_con_summed = numpy.zeros_like(g_con)
-        g_obj_summed = numpy.zeros_like(g_obj)
+        g_con_summed = np.zeros_like(g_con)
+        g_obj_summed = np.zeros_like(g_obj)
         self.gcomm.Allreduce(g_obj, g_obj_summed, op=MPI.SUM)
         self.gcomm.Allreduce(g_con, g_con_summed, op=MPI.SUM)
         return g_obj_summed, g_con_summed, derivatives["fail"]
@@ -623,7 +623,7 @@ class procSet(object):
         self.setName = setName
         self.nMembers = nMembers
         self.memberSizes = memberSizes
-        self.nProc = numpy.sum(self.memberSizes)
+        self.nProc = np.sum(self.memberSizes)
         self.setID = setCount
         self.functionals = {}
         self.gcomm = None
@@ -651,7 +651,7 @@ class procSet(object):
         """
 
         # Create a cumulative size array
-        cumGroups = numpy.zeros(self.nMembers + 1, "intc")
+        cumGroups = np.zeros(self.nMembers + 1, "intc")
 
         for i in range(self.nMembers):
             cumGroups[i + 1] = cumGroups[i] + self.memberSizes[i]
@@ -674,7 +674,7 @@ class procSet(object):
         # print('[%d] Size     :'%(MPI.COMM_WORLD.rank),self.gcomm.size)
 
         self.comm = self.gcomm.Split(m_key)
-        self.groupFlags = numpy.zeros(self.nMembers, bool)
+        self.groupFlags = np.zeros(self.nMembers, bool)
         self.groupFlags[m_key] = True
         self.groupID = m_key
         self.cumGroups = cumGroups

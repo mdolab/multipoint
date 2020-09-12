@@ -1,7 +1,7 @@
 # =============================================================================
 # External Python modules
 # =============================================================================
-import numpy
+import numpy as np
 
 # =============================================================================
 # Extension modules
@@ -97,7 +97,7 @@ def group1_obj(x):
 
     g1_drag = x["v1"] ** 2 * (pt_id + 1)
     g1_lift = x["v1"] * 2 * 3.14159 * (pt_id + 1)
-    g1_thick = numpy.ones(5)
+    g1_thick = np.ones(5)
 
     comm_values = {"group1_lift": g1_lift, "group1_drag": g1_drag, "group1_thickness": g1_thick, "fail": False}
 
@@ -135,7 +135,7 @@ def group1_sens(x, obj, con):
 
     g1_drag_deriv = [2 * x["v1"] * (pt_id + 1), 0]
     g1_lift_deriv = [2 * 3.14159 * (pt_id + 1), 0]
-    g1_thick_deriv = numpy.zeros([5, 2])
+    g1_thick_deriv = np.zeros([5, 2])
 
     comm_values = {"group1_lift": g1_lift_deriv, "group1_drag": g1_drag_deriv, "group1_thickness": g1_thick_deriv}
 
@@ -168,7 +168,7 @@ def objective(funcs, printOK):
     # We have N_GROUP_1 drag values from group1 which we will average,
     # and then we will add the single value from g2_drag
 
-    tmp = numpy.average(funcs["group1_drag"])
+    tmp = np.average(funcs["group1_drag"])
 
     total_drag = tmp + funcs["group2_drag"]
 
