@@ -1,7 +1,7 @@
 #!/usr/bin/python
 """
 multiPointSparse.py -- A python utility for aiding complicated multi-point
-optimizations -- designed to work specifically with pyOptSparse. 
+optimizations -- designed to work specifically with pyOptSparse.
 
 Copyright (c) 2013 by Dr. G. K. W. Kenway
 All rights reserved. Not to be used for commercial purposes.

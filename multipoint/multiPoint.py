@@ -23,7 +23,9 @@ __version__ = '$Revision: $'
 # =============================================================================
 # Standard Python modules
 # =============================================================================
-import sys, os, types
+import sys
+import os
+import types
 
 # =============================================================================
 # External Python modules
@@ -34,6 +36,14 @@ import numpy
 # Extension modules
 # =============================================================================
 from mpi4py import MPI
+
+
+def mpiPrint(msg, comm=None):
+    if comm is None:
+        comm = MPI.COMM_WORLD
+    if comm.rank == 0:
+        print(msg)
+
 
 # =============================================================================
 # MultiPoint Class
@@ -204,7 +214,7 @@ class multiPoint(object):
         # Check the sizes
         if nProc < self.gcomm.size or nProc > self.gcomm.size:
             mpiPrint(
-                "Error: multiPoint must be called iwth EXACTLY %d processors" % (nProc),
+                "Error: multiPoint must be called with EXACTLY %d processors" % (nProc),
                 comm=self.gcomm,
             )
             sys.exit(1)
@@ -383,7 +393,7 @@ class multiPoint(object):
                 res = self.pSet[key].objFunc(x)
 
                 # First check to see if anything is actually returned in the objFunc(x)
-                if res == None:
+                if res is None:
                     print("No values returned in objective function!")
                     sys.exit(1)
 
@@ -397,7 +407,7 @@ class multiPoint(object):
 
                 # If the user has NOT supplied a fail flag, assume it
                 # has not failed:
-                if not "fail" in res:
+                if "fail" not in res:
                     res["fail"] = 0
                 # end if
 
@@ -505,7 +515,7 @@ class multiPoint(object):
 
                 # If the user has NOT supplied a fail flag, assume it
                 # has not failed:
-                if not "fail" in res:
+                if "fail" not in res:
                     res["fail"] = 0
                 # end if
 

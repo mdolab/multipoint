@@ -1,28 +1,17 @@
-#!/usr/bin/python
-"""
-tempMP.py --- An example for using the multiPoint analysis module
-"""
-
-# =============================================================================
-# Standard Python modules
-# =============================================================================
-import sys, os, time
-
 # =============================================================================
 # External Python modules
 # =============================================================================
-
 import numpy
 
 # =============================================================================
 # Extension modules
 # =============================================================================
-from mdo_import_helper import MPI, mpiPrint
-from . import multiPoint
+from mpi4py import MPI
+import multipoint
 
 # First create multipoint object on the communicator that will contain
 # all multipoint processes. This is often MPI.COMM_WORLD.
-MP = multiPoint.multiPoint(MPI.COMM_WORLD)
+MP = multipoint.multiPoint(MPI.COMM_WORLD)
 
 # Next add a "ProcessorSet". A ProcessorSet is a set of communicators
 # that will all compute the same information. A typical 'ProcessorSet'
