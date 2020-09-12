@@ -1,49 +1,12 @@
-#!/usr/bin/python
-"""
-multiPoint.py -- A python utility for aiding complex multi-point optimizations
-
-Copyright (c) 2011 by Mr. G. K. W. Kenway
-All rights reserved. Not to be used for commercial purposes.
-Revision: 1.0   $Date: 08/11/2011$
-
-
-Developers:
------------
-- Mr. G. K. W. Kenway
-
-History
--------
-v. 1.0  - First implementatino
-'''
-
-__version__ = '$Revision: $'
-
-"""
-
 # =============================================================================
-# Standard Python modules
+# Imports
 # =============================================================================
 import sys
 import os
 import types
-
-# =============================================================================
-# External Python modules
-# =============================================================================
 import numpy
-
-# =============================================================================
-# Extension modules
-# =============================================================================
 from mpi4py import MPI
-
-
-def mpiPrint(msg, comm=None):
-    if comm is None:
-        comm = MPI.COMM_WORLD
-    if comm.rank == 0:
-        print(msg)
-
+from .utils import mpiPrint
 
 # =============================================================================
 # MultiPoint Class
@@ -642,8 +605,6 @@ class multiPoint(object):
                 functionals[key] = functionals[key].astype("D")
             except:
                 pass
-            # end try
-        # end for
 
         return functionals
 
