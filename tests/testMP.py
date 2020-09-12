@@ -29,14 +29,14 @@ MP = multiPoint.multiPoint(MPI.COMM_WORLD)
 # may be each analysis point in a weighted sum drag minimization. Each
 # aerodynamic problem will compute the same information, (like lift,
 # drag and moment). We wil tell MP how many members we want of this
-# ProcessorSet type as well as the size of each of the member. 
+# ProcessorSet type as well as the size of each of the member.
 
 # Create processor set for group1. This requies N_GROUP_1*N_PROCS_1
 # processors
 
-N_GROUP_1 = 2 
+N_GROUP_1 = 2
 N_PROCS_1 = 1
-MP.addProcessorSet('group1',N_GROUP_1, N_PROCS_1)
+MP.addProcessorSet("group1", N_GROUP_1, N_PROCS_1)
 
 # Next we tell MP what information or functionals we would like it to
 # generate. The first argument is the processorSet we just added
@@ -45,24 +45,24 @@ MP.addProcessorSet('group1',N_GROUP_1, N_PROCS_1)
 # data is unique on each processor (unique=True (each one generates a
 # different value) or not unique (unique=False) (each processor
 # generates the same values). Currently rank=1,unique=True is NOT
-# supported. 
+# supported.
 
-MP.addFunctionals('group1', 'group1_drag', rank=0, unique=True)
-MP.addFunctionals('group1', 'group1_lift', rank=0, unique=True)
-MP.addFunctionals('group1', 'group1_thickness', rank=1, unique=False)
+MP.addFunctionals("group1", "group1_drag", rank=0, unique=True)
+MP.addFunctionals("group1", "group1_lift", rank=0, unique=True)
+MP.addFunctionals("group1", "group1_thickness", rank=1, unique=False)
 
 # We will now add a second processor set that will generate more
 # functionals. Note that the name given to the addFunctionals command
-# MUST NOT be the same as one already added. 
+# MUST NOT be the same as one already added.
 
 N_GROUP_2 = 1
 N_PROCS_2 = 1
 
-MP.addProcessorSet('group2',N_GROUP_2, N_PROCS_2)
-MP.addFunctionals('group2','group2_drag',rank=0,unique=True)
+MP.addProcessorSet("group2", N_GROUP_2, N_PROCS_2)
+MP.addFunctionals("group2", "group2_drag", rank=0, unique=True)
 
 # Continue adding ProcessorSets and the associated functionals for
-# however many different types of analysis are required. 
+# however many different types of analysis are required.
 
 # -------------------------------------------------------------------
 
@@ -75,10 +75,10 @@ comm, setComm, setFlags, groupFlags, pt_id = MP.createCommunicators()
 
 # comm:  is the communicator for a given member in a ProcessorSet. This
 # is the lowest comm that comes out. The analysis to create the
-# functionals should be created on this comm. 
+# functionals should be created on this comm.
 
 # setComm: is the communicator over the set that this processor
-# belongs to. This is typically not frequently used. 
+# belongs to. This is typically not frequently used.
 
 # setFlags: Flags to determine which ProcessorSet you belong to.
 # setFlags['group1'] will be True if the processor belongs to group1
@@ -98,36 +98,36 @@ comm, setComm, setFlags, groupFlags, pt_id = MP.createCommunicators()
 # -------------------------------------------------------------------
 
 # We now must define functions that will compute the functionals for
-# each processor set. 
+# each processor set.
+
 
 def group1_obj(x):
 
     # We must compute a single value for g1_drag, g1_lift and a vector
-    # of values for g1_thickness. 
+    # of values for g1_thickness.
 
-    g1_drag = x['v1'] ** 2 * (pt_id + 1)
-    g1_lift = x['v1'] * 2 * 3.14159 * (pt_id + 1)
+    g1_drag = x["v1"] ** 2 * (pt_id + 1)
+    g1_lift = x["v1"] * 2 * 3.14159 * (pt_id + 1)
     g1_thick = numpy.ones(5)
-    
-    comm_values = {'group1_lift': g1_lift,
-                   'group1_drag': g1_drag,
-                   'group1_thickness': g1_thick,
-                   'fail':False}
+
+    comm_values = {"group1_lift": g1_lift, "group1_drag": g1_drag, "group1_thickness": g1_thick, "fail": False}
 
     # There is a special value in comm_values called 'fail' that can
     # be used to indicate that the analysis did not produce a usable
     # value. This is then allReduced with an MPI.or over all
-    # processorSets. 
-    
+    # processorSets.
+
     return comm_values
+
 
 def group2_obj(x):
-    
-    g2_drag = x['v2'] ** 3
 
-    comm_values = {'group2_drag': g2_drag}
+    g2_drag = x["v2"] ** 3
+
+    comm_values = {"group2_drag": g2_drag}
 
     return comm_values
+
 
 # -------------------------------------------------------------------
 
@@ -135,7 +135,8 @@ def group2_obj(x):
 # functionals with respect a set of design variables for each
 # processor set.
 
-def group1_sens(x,obj,con):
+
+def group1_sens(x, obj, con):
 
     # We must evalue the sensitivity of the required functionals with
     # respect to our design variables. Note that the MP doesn't care
@@ -143,24 +144,23 @@ def group1_sens(x,obj,con):
     # consistent. Now single values like g1_lift are returned as
     # vectors and vectors like g1_thick are returned as matrices.
 
-    g1_drag_deriv  = [2*x['v1']*(pt_id + 1),0]
-    g1_lift_deriv  = [2*3.14159*(pt_id+1), 0]
-    g1_thick_deriv = numpy.zeros([5,2])
+    g1_drag_deriv = [2 * x["v1"] * (pt_id + 1), 0]
+    g1_lift_deriv = [2 * 3.14159 * (pt_id + 1), 0]
+    g1_thick_deriv = numpy.zeros([5, 2])
 
-    comm_values = {'group1_lift': g1_lift_deriv,
-                   'group1_drag': g1_drag_deriv,
-                   'group1_thickness': g1_thick_deriv}
+    comm_values = {"group1_lift": g1_lift_deriv, "group1_drag": g1_drag_deriv, "group1_thickness": g1_thick_deriv}
 
     return comm_values
 
-def group2_sens(x,obj,con):
-    
-    g2_drag_deriv  = [0, 3*x['v2']**2]
 
-    
-    comm_values = {'group2_drag': g2_drag_deriv}
-    
+def group2_sens(x, obj, con):
+
+    g2_drag_deriv = [0, 3 * x["v2"] ** 2]
+
+    comm_values = {"group2_drag": g2_drag_deriv}
+
     return comm_values
+
 
 # -------------------------------------------------------------------
 
@@ -171,17 +171,17 @@ def group2_sens(x,obj,con):
 # all ProcessorSets that is now available on all processors. What
 # we're now computing is how the objective and constraints are related
 # to these functionals. Typically these functions are very simple and
-# are entirely written in Python with just a few lines of code. 
+# are entirely written in Python with just a few lines of code.
 
 
 def objective(funcs, printOK):
 
     # We have N_GROUP_1 drag values from group1 which we will average,
     # and then we will add the single value from g2_drag
-  
-    tmp = numpy.average(funcs['group1_drag'])
 
-    total_drag = tmp + funcs['group2_drag']
+    tmp = numpy.average(funcs["group1_drag"])
+
+    total_drag = tmp + funcs["group2_drag"]
 
     # Now simply return our objective
 
@@ -192,16 +192,17 @@ def constraints(funcs, printOK):
 
     # Assemble all the constraint functions from the computed funcs:
     f_con = []
-    f_con.extend(funcs['group1_lift'])
-    f_con.extend(funcs['group1_thickness'])
+    f_con.extend(funcs["group1_lift"])
+    f_con.extend(funcs["group1_thickness"])
 
     return f_con
+
 
 # -------------------------------------------------------------------
 
 # Finally we need to tell MP the functions we just defined for the
 # functional evaluation and gradient as well as the objective and
-# constraint functions. 
+# constraint functions.
 
 # Set the objective/Sens functions:
 MP.setObjFunc("group1", group1_obj)
@@ -226,20 +227,19 @@ MP.setConstraintsFunction(constraints)
 # snopt(opt_prob, MP.sens)
 
 x = {}
-x['v1'] = 5
-x['v2'] = 2
+x["v1"] = 5
+x["v2"] = 2
 
 obj_value, con_values, fail = MP.fun_obj(x)
 
 if MPI.COMM_WORLD.rank == 0:
-    print('obj_value:',obj_value)
-    print('con_values:',con_values)
-    print('Fail Flag:',fail)
-    
+    print("obj_value:", obj_value)
+    print("con_values:", con_values)
+    print("Fail Flag:", fail)
+
 g_obj, g_con, fail = MP.sens(x, obj_value, con_values)
 
 if MPI.COMM_WORLD.rank == 0:
-    print('g_obj',g_obj)
-    print('g_con',g_con)
-    print('Fail Flag',fail)
-
+    print("g_obj", g_obj)
+    print("g_con", g_con)
+    print("Fail Flag", fail)
