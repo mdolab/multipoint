@@ -20,7 +20,7 @@ MP = multipoint.multiPoint(MPI.COMM_WORLD)
 # drag and moment). We wil tell MP how many members we want of this
 # ProcessorSet type as well as the size of each of the member.
 
-# Create processor set for group1. This requies N_GROUP_1*N_PROCS_1
+# Create processor set for group1. This requires N_GROUP_1*N_PROCS_1
 # processors
 
 N_GROUP_1 = 2
@@ -120,14 +120,14 @@ def group2_obj(x):
 
 # -------------------------------------------------------------------
 
-# We now must define functions that will compute the SENSITIIVTY of
+# We now must define functions that will compute the SENSITIVITY of
 # functionals with respect a set of design variables for each
 # processor set.
 
 
 def group1_sens(x, obj, con):
 
-    # We must evalue the sensitivity of the required functionals with
+    # We must evaluate the sensitivity of the required functionals with
     # respect to our design variables. Note that the MP doesn't care
     # how many design variables you have, they just have to be
     # consistent. Now single values like g1_lift are returned as

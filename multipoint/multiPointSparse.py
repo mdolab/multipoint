@@ -128,8 +128,8 @@ class multiPointSparse(object):
     def addProcessorSet(self, setName, nMembers, memberSizes):
         """
         A Processor set is defined as one or more groups of processors
-        that use the same obj() and sens() froutines. Members of
-        processor sets typically, but not necessairly, return the same
+        that use the same obj() and sens() routines. Members of
+        processor sets typically, but not necessarily, return the same
         number of functions. In all cases, the function names must be
         unique.
 
@@ -142,7 +142,7 @@ class multiPointSparse(object):
             Number of members in the set.
 
         memberSizes : int, iteratable
-            Number of processors on each set. If an iteger is suppled all
+            Number of processors on each set. If an integer is suppled all
             members use the same number of processors.
             If a list or array is provided, a different number of processors
             on each member can be specified.
@@ -152,8 +152,8 @@ class multiPointSparse(object):
         >>> MP.addProcessorSet('cruise', 3, 32)
         >>> MP.addProcessorSet('maneuver', 2, [10, 20])
         """
-        # Lets let the user explictly set nMembers to 0. This is
-        # equilivant to just turning off that proc set.
+        # Lets let the user explicitly set nMembers to 0. This is
+        # equalevent to just turning off that proc set.
         if nMembers == 0:
             self.dummyPSet.add(setName)
         else:
@@ -163,7 +163,7 @@ class multiPointSparse(object):
                 memberSizes = numpy.ones(nMembers) * memberSizes[0]
             else:
                 if len(memberSizes) != nMembers:
-                    raise MPError("The suppliled memberSizes list is not the correct length.")
+                    raise MPError("The suppllied memberSizes list is not the correct length.")
 
             self.pSet[setName] = procSet(setName, nMembers, memberSizes, len(self.pSet))
 
@@ -177,7 +177,7 @@ class multiPointSparse(object):
         -------
         comm : MPI.Intracomm
             This is the communicator for the member of the procSet. Basically,
-            this is the communciator that the (parallel) analyais should be
+            this is the communciator that the (parallel) analysis should be
             created on
         setComm : MPI.Intracomm
             This is the communicator that spans the entire processor set.
@@ -185,7 +185,7 @@ class multiPointSparse(object):
             This is a dictionary whose entry for \"setName\", as specified in
             addProcessorSet() is True on a processor belonging to that set.
         groupFlags : list
-            This is list is used to destinguish between members within
+            This is list is used to distinguish between members within
             a processor set. This list of of length nMembers and the
             ith entry is true for the ith group.
         ptID : int
@@ -406,7 +406,7 @@ class multiPointSparse(object):
     def setObjCon(self, func):
         """
         Set the python function handle to compute the final objective
-        and constriaints that are combinations of the functionals.
+        and constraints that are combinations of the functionals.
 
         Parameters
         ----------
@@ -441,7 +441,7 @@ class multiPointSparse(object):
         assemble the gradients. If the optProb is not 'finished', it
         will done so here. Therefore, this function is collective on
         the comm that optProb is built on. multiPoint sparse does
-        *not* hold a reference to optProb so no additional cahnges can
+        *not* hold a reference to optProb so no additional changes can
         be made to optProb after this function is called.
 
         Parameters
@@ -485,11 +485,11 @@ class multiPointSparse(object):
 
     def addDVsAsFunctions(self, dvs):
         """This function allows you to specify a list of design variables to
-        be explictly used as functions. Essentially, we just copy the
-        values of the DVs directly into keys in 'fucncs' and
+        be explicitly used as functions. Essentially, we just copy the
+        values of the DVs directly into keys in 'funcs' and
         automatically generate an identity jacobian. This allows the
         remainder of the objective/sensitivity computations to be
-        proceeed as per usual.
+        proceed as per usual.
 
         Parameters
         ----------
@@ -524,7 +524,7 @@ class multiPointSparse(object):
         This is a built-in objective function that is designed to be
         used directly as an objective function with pyOptSparse. The
         user should not use this function directly, instead see the
-        class documentation for the inteded usage.
+        class documentation for the intended usage.
 
         Parameters
         ----------
@@ -533,7 +533,7 @@ class multiPointSparse(object):
         """
         for key in dkeys(self.pSet):
             if self.setFlags[key]:
-                # Run "obj" funtion to generate functionals
+                # Run "obj" function to generate functionals
                 res = {"fail": False}
                 for func in self.pSet[key].objFunc:
                     tmp = func(x)
@@ -618,8 +618,8 @@ class multiPointSparse(object):
 
     def sens(self, x, funcs):
         """
-        This is a built-in sensitity function that is designed to be
-        used directly as a the sensitivty function with
+        This is a built-in sensitivity function that is designed to be
+        used directly as a the sensitivity function with
         pyOptSparse. The user should not use this function directly,
         instead see the class documentation for the intended usage.
 
@@ -630,7 +630,7 @@ class multiPointSparse(object):
         """
         for key in dkeys(self.pSet):
             if self.setFlags[key]:
-                # Run "sens" funtion to functionals sensitivities
+                # Run "sens" function to functionals sensitivities
                 res = {"fail": False}
                 for func in self.pSet[key].sensFunc:
                     tmp = func(x, funcs)

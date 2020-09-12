@@ -90,7 +90,7 @@ class multiPoint(object):
             memberSizes = numpy.ones(nMembers) * memberSizes[0]
         else:
             if len(memberSizes) != nMembers:
-                print("Error: The suppliled memberSizes list is not the correct length")
+                print("Error: The suppllied memberSizes list is not the correct length")
                 sys.exit(1)
             # end if
         # end if
@@ -294,7 +294,7 @@ class multiPoint(object):
     def setSensFunc(self, setName, func):
         """
         Set the python function handle to compute the sensitivity of
-        thefunctionals expected from the set definition
+        the functionals expected from the set definition
 
         Input Arguments:
             setName: Name of set we are setting function for:
@@ -490,7 +490,7 @@ class multiPoint(object):
 
                     r = self.pSet[key].functionals[func]["rank"]
 
-                    # Check to see if it needs tobe communicated:
+                    # Check to see if it needs to be communicated:
 
                     if self.pSet[key].functionals[func]["unique"]:
                         if r == 0:
@@ -669,7 +669,7 @@ class procSet(object):
         # if m_key is None:
         # print('[%d] Split is Screwed!'%(MPI.COMM_WORLD.rank))
         # print('[%d] cumGroups:'%(MPI.COMM_WORLD.rank),cumGroups)
-        # print('[%d] nMmembers:'%(MPI.COMM_WORLD.rank),self.nMembers)
+        # print('[%d] nMembers:'%(MPI.COMM_WORLD.rank),self.nMembers)
         # print('[%d] Rank     :'%(MPI.COMM_WORLD.rank),self.gcomm.rank)
         # print('[%d] Size     :'%(MPI.COMM_WORLD.rank),self.gcomm.size)
 

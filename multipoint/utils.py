@@ -108,7 +108,7 @@ class MPError(Exception):
     def __init__(self, message):
         """
         Format the error message in a box to make it clear this
-        was a expliclty raised exception.
+        was a explicitly raised exception.
         """
         msg = "\n+" + "-" * 78 + "+" + "\n" + "| multiPointSparse Error: "
         i = 25
