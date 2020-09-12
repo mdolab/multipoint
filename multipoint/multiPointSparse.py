@@ -267,8 +267,8 @@ class multiPointSparse(object):
         that use the same obj() and sens() froutines. Members of
         processor sets typically, but not necessairly, return the same
         number of functions. In all cases, the function names must be
-        unique. 
-        
+        unique.
+
         Parameters
         ----------
         setName : str
@@ -278,10 +278,10 @@ class multiPointSparse(object):
             Number of members in the set.
 
         memberSizes : int, iteratable
-            Number of processors on each set. If an iteger is suppled all\
-            members use the same number of processors.\
-            If a list or array is provided, a different number of processors\
-            on each member can be specified. 
+            Number of processors on each set. If an iteger is suppled all
+            members use the same number of processors.
+            If a list or array is provided, a different number of processors
+            on each member can be specified.
 
         Examples
         --------
@@ -469,7 +469,7 @@ class multiPointSparse(object):
         if setName in self.dummyPSet:
             return
         if setName not in self.pSet:
-            raise MPError("setName '%s' has not been added with " "addProcessorSet." % setName)
+            raise MPError("setName '%s' has not been added with addProcessorSet." % setName)
         if not isinstance(func, types.FunctionType):
             raise MPError("func must be a Python function handle.")
 
@@ -490,7 +490,7 @@ class multiPointSparse(object):
         if setName in self.dummyPSet:
             return
         if setName not in self.pSet:
-            raise MPError("setName '%s' has not been added with " "addProcessorSet." % setName)
+            raise MPError("setName '%s' has not been added with addProcessorSet." % setName)
         if not isinstance(func, types.FunctionType):
             raise MPError("func must be a Python function handle.")
 
@@ -510,7 +510,7 @@ class multiPointSparse(object):
         if setName in self.dummyPSet:
             return
         if setName not in self.pSet:
-            raise MPError("setName '%s' has not been added with " "addProcessorSet." % setName)
+            raise MPError("setName '%s' has not been added with addProcessorSet." % setName)
         if not isinstance(func, types.FunctionType):
             raise MPError("func must be a Python function handle.")
 
@@ -533,7 +533,7 @@ class multiPointSparse(object):
             return
 
         if setName not in self.pSet:
-            raise MPError("setName '%s' has not been added with " "addProcessorSet." % setName)
+            raise MPError("setName '%s' has not been added with addProcessorSet." % setName)
         if not isinstance(func, types.FunctionType):
             raise MPError("func must be a Python function handle.")
 
@@ -562,10 +562,8 @@ class multiPointSparse(object):
             or len(argSpec.args) not in [1, 2, 3]
         ):
             raise MPError(
-                "The function signature for the function given "
-                "to 'setObjCon' is invalid. It must be: "
-                "def objCon(funcs):, def objCon(funcs, printOK): "
-                "or def objCon(funcs, printOK, passThroughFuncs):"
+                "The function signature for the function given to 'setObjCon' is invalid. It must be: "
+                + "def objCon(funcs):, def objCon(funcs, printOK): or def objCon(funcs, printOK, passThroughFuncs):"
             )
 
         # Now we know that there are exactly one or two arguments.
@@ -615,9 +613,10 @@ class multiPointSparse(object):
         for dv in self.dvsAsFuncs:
             if dv not in optProb.variables:
                 raise MPError(
-                    "The supplied design variable '%s' in "
-                    "addDVsAsFunctions() call does not exist "
-                    "in the supplied Optimization object." % dv
+                    (
+                        "The supplied design variable '{}' in addDVsAsFunctions() call"
+                        + " does not exist in the supplied Optimization object."
+                    ).format(dv)
                 )
 
     def addDVsAsFunctions(self, dvs):
@@ -676,10 +675,10 @@ class multiPointSparse(object):
                     tmp = func(x)
                     if tmp is None:
                         raise MPError(
-                            "No return from user supplied objective "
-                            "function for pSet %s. Functional "
-                            "derivatives must be returned in a "
-                            "dictionary." % key
+                            (
+                                "No return from user supplied objective function for pSet {}. "
+                                + "Functional derivatives must be returned in a dictionary."
+                            ).format(key)
                         )
 
                     if "fail" in tmp:
@@ -773,10 +772,10 @@ class multiPointSparse(object):
                     tmp = func(x, funcs)
                     if tmp is None:
                         raise MPError(
-                            "No return from user supplied sensitivity "
-                            "function for pSet %s. Functional "
-                            "derivatives must be returned in a "
-                            "dictionary." % key
+                            (
+                                "No return from user supplied sensitivity function for pSet {}. "
+                                + "Functional derivatives must be returned in a dictionary."
+                            ).format(key)
                         )
                     if "fail" in tmp:
                         res["fail"] = bool(tmp.pop("fail") or res["fail"])

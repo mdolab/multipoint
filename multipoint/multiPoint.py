@@ -117,10 +117,7 @@ class multiPoint(object):
             memberSizes = numpy.ones(nMembers) * memberSizes[0]
         else:
             if len(memberSizes) != nMembers:
-                print(
-                    "Error: The suppliled memberSizes list is not the\
- correct length"
-                )
+                print("Error: The suppliled memberSizes list is not the correct length")
                 sys.exit(1)
             # end if
         # end if
@@ -156,16 +153,11 @@ class multiPoint(object):
                           the same data
         """
         # First check if setName is added:
-        assert (
-            setName in self.pSet.keys()
-        ), "setName has not been added with\
- addProcessorSet"
+        assert setName in self.pSet.keys(), "setName has not been added with addProcessorSet"
 
         # Check that funcName is not ALREADY added:
-        assert funcName not in self.pSet[setName].functionals, (
-            "%s has\
- already been added. Use another name."
-            % (funcName)
+        assert funcName not in self.pSet[setName].functionals, "%s has already been added. Use another name." % (
+            funcName
         )
 
         # Check that rank is 0 or 1
@@ -212,9 +204,7 @@ class multiPoint(object):
         # Check the sizes
         if nProc < self.gcomm.size or nProc > self.gcomm.size:
             mpiPrint(
-                "Error: multiPoint must be called iwth EXACTLY\
- %d processors"
-                % (nProc),
+                "Error: multiPoint must be called iwth EXACTLY %d processors" % (nProc),
                 comm=self.gcomm,
             )
             sys.exit(1)
@@ -288,8 +278,7 @@ class multiPoint(object):
 
         if len(self.pSet) == 0:
             mpiPrint(
-                "Warning: No processorSets added. Cannot create \
-directories",
+                "Warning: No processorSets added. Cannot create directories",
                 comm=self.gcomm,
             )
             return
@@ -323,10 +312,7 @@ directories",
             None
         """
 
-        assert (
-            setName in self.pSet.keys()
-        ), "setName has not been added with\
- addProcessorSet"
+        assert setName in self.pSet.keys(), "setName has not been added with addProcessorSet"
         assert isinstance(func, types.FunctionType), "func must be a Python function."
         self.pSet[setName].objFunc = func
 
@@ -344,10 +330,7 @@ directories",
         Output Arguments:
             None
         """
-        assert (
-            setName in self.pSet.keys()
-        ), "setName has not been added with\
- addProcessorSet"
+        assert setName in self.pSet.keys(), "setName has not been added with addProcessorSet"
         assert isinstance(func, types.FunctionType), "func must be a Python function."
         self.pSet[setName].sensFunc = func
 
@@ -726,10 +709,3 @@ class procSet(object):
         self.cumGroups = cumGroups
 
         return
-
-
-# ==============================================================================
-# mutliPoint Test
-# ==============================================================================
-if __name__ == "__main__":
-    from . import testMP
