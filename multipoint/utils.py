@@ -5,6 +5,10 @@ from mpi4py import MPI
 
 
 def mpiPrint(msg, comm=None):
+    """
+    Prints message only on the root proc of the comm.
+    If no comm is specified, it is assumed to be MPI.COMM_WORLD
+    """
     if comm is None:
         comm = MPI.COMM_WORLD
     if comm.rank == 0:
