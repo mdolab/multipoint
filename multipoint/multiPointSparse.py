@@ -10,7 +10,7 @@ from collections import OrderedDict
 import numpy as np
 from mpi4py import MPI
 
-from .utils import MPError, dkeys, skeys
+from .utils import MPError, dkeys, skeys, _extractKeys, _complexifyFuncs
 
 # =============================================================================
 # MultiPoint Class
@@ -605,8 +605,8 @@ class multiPointSparse(object):
             self.inputKeys.update(self.consAsInputs)
             self.passThroughKeys.difference_update(self.consAsInputs)
 
-        inputFuncs = self._extractKeys(allFuncs, self.inputKeys)
-        passThroughFuncs = self._extractKeys(allFuncs, self.passThroughKeys)
+        inputFuncs = _extractKeys(allFuncs, self.inputKeys)
+        passThroughFuncs = _extractKeys(allFuncs, self.passThroughKeys)
         funcs = self._userObjConWrap(inputFuncs, True, passThroughFuncs)
 
         # Add the pass-through ones back:
@@ -692,9 +692,9 @@ class multiPointSparse(object):
 
         gcon = {}
         # Extract/Complexify just the keys we need:
-        passThroughFuncs = self._extractKeys(self.funcs, self.passThroughKeys)
-        cFuncs = self._extractKeys(self.funcs, self.inputKeys)
-        cFuncs = self._complexifyFuncs(cFuncs, self.inputKeys)
+        passThroughFuncs = _extractKeys(self.funcs, self.passThroughKeys)
+        cFuncs = _extractKeys(self.funcs, self.inputKeys)
+        cFuncs = _complexifyFuncs(cFuncs, self.inputKeys)
 
         # Just copy the passthrough keys and keys that are both inputs and constrains:
         for pKey in self.passThroughKeys:
@@ -742,21 +742,6 @@ class multiPointSparse(object):
         fail = self.gcomm.bcast(fail, root=0)
 
         return gcon, fail
-
-    def _complexifyFuncs(self, funcs, keys):
-        """ Convert functionals to complex type"""
-        for key in skeys(keys):
-            if not np.isscalar(funcs[key]):
-                funcs[key] = np.array(funcs[key]).astype("D")
-
-        return funcs
-
-    def _extractKeys(self, funcs, keys):
-        """Return a copy of the dict with just the keys given in keys"""
-        newDict = {}
-        for key in skeys(keys):
-            newDict[key] = copy.deepcopy(funcs[key])
-        return newDict
 
     def _userObjConWrap(self, funcs, printOK, passThroughFuncs):
         """Small wrapper to determine how to call user function:"""

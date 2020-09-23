@@ -1,7 +1,9 @@
 import os
 import sys
 import io
+import copy
 from mpi4py import MPI
+import numpy as np
 
 
 def mpiPrint(msg, comm=None):
@@ -18,6 +20,23 @@ def mpiPrint(msg, comm=None):
 # =============================================================================
 # Utility create groups function
 # =============================================================================
+def _complexifyFuncs(funcs, keys):
+    """ Convert functionals to complex type"""
+    for key in skeys(keys):
+        if not np.isscalar(funcs[key]):
+            funcs[key] = np.array(funcs[key]).astype("D")
+
+    return funcs
+
+
+def _extractKeys(funcs, keys):
+    """Return a copy of the dict with just the keys given in keys"""
+    newDict = {}
+    for key in skeys(keys):
+        newDict[key] = copy.deepcopy(funcs[key])
+    return newDict
+
+
 def dkeys(dict):
     """Utility function to return the keys of a dict in sorted order
     so that the iteration order is guaranteed to be the same. Blame
