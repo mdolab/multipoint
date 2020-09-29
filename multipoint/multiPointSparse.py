@@ -416,22 +416,16 @@ class multiPointSparse(object):
         if not isinstance(func, types.FunctionType):
             raise MPError("func must be a Python function handle.")
 
-        # Also do some checking on function prototype to make sure it
-        # is ok:
-        argSpec = inspect.getargspec(func)
-        if (
-            argSpec.varargs is not None
-            or argSpec.keywords is not None
-            or argSpec.defaults is not None
-            or len(argSpec.args) not in [1, 2, 3]
-        ):
+        # Also do some checking on function prototype to make sure it is ok:
+        sig = inspect.signature(func)
+        if len(sig.parameters) not in [1, 2, 3]:
             raise MPError(
                 "The function signature for the function given to 'setObjCon' is invalid. It must be: "
                 + "def objCon(funcs):, def objCon(funcs, printOK): or def objCon(funcs, printOK, passThroughFuncs):"
             )
 
         # Now we know that there are exactly one or two arguments.
-        self.nUserObjConArgs = len(argSpec.args)
+        self.nUserObjConArgs = len(sig.parameters)
         self.userObjCon = func
 
     def setOptProb(self, optProb):
