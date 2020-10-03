@@ -142,7 +142,7 @@ class multiPointSparse(object):
             Number of members in the set.
 
         memberSizes : int, iteratable
-            Number of processors on each set. If an integer is suppled all
+            Number of processors on each set. If an integer is supplied all
             members use the same number of processors.
             If a list or array is provided, a different number of processors
             on each member can be specified.
@@ -163,7 +163,7 @@ class multiPointSparse(object):
                 memberSizes = np.ones(nMembers) * memberSizes[0]
             else:
                 if len(memberSizes) != nMembers:
-                    raise MPError("The suppllied memberSizes list is not the correct length.")
+                    raise MPError("The supplied memberSizes list is not the correct length.")
 
             self.pSet[setName] = procSet(setName, nMembers, memberSizes, len(self.pSet))
 
