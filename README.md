@@ -11,4 +11,4 @@ To locally build the documentation, enter the `doc` folder and enter `make html`
 You can then view the built documentation in the `_build` folder.
 
 ## License
-Copyright 2019 MDO Lab. See the LICENSE file for details.
+Copyright 2020 MDO Lab. See the LICENSE file for details.
