@@ -1,19 +1,3 @@
-#!/usr/bin/python
-"""
-multiPointSparse.py -- A python utility for aiding complicated multi-point
-optimizations -- designed to work specifically with pyOptSparse. 
-
-Copyright (c) 2013 by Dr. G. K. W. Kenway
-All rights reserved. Not to be used for commercial purposes.
-
-Developers:
------------
-- Dr. G. K. W. Kenway
-
-History
--------
-v. 1.0  - First implementation
-"""
 # =============================================================================
 # Imports
 # =============================================================================
@@ -21,139 +5,26 @@ import os
 import inspect
 import types
 import copy
-import sys
-import io
-try:
-    from collections import OrderedDict
-except ImportError:
-    # python 2.6 or earlier, use backport
-    # get using "pip install ordereddict"
-    from ordereddict import OrderedDict
-import numpy
+from collections import OrderedDict
+
+import numpy as np
 from mpi4py import MPI
 
-# =============================================================================
-# Error Handling Class
-# =============================================================================
-class MPError(Exception):
-    def __init__(self, message):
-        """
-        Format the error message in a box to make it clear this
-        was a expliclty raised exception.
-        """
-        msg = '\n+'+'-'*78+'+'+'\n' + '| multiPointSparse Error: '
-        i = 25
-        for word in message.split():
-            if len(word) + i +1 > 78: # Finish line and start new one
-                msg += ' '*(78-i)+'|\n| ' + word + ' '
-                i = 2 + len(word)+1
-            else:
-                msg += word + ' '
-                i += len(word)+1
-        msg += ' '*(79-i) + '|\n' + '+'+'-'*78+'+'+'\n'
-        print(msg)
-        Exception.__init__(self)
+from .utils import MPError, dkeys, skeys, _extractKeys, _complexifyFuncs
 
-# =============================================================================
-# Utility create groups function
-# =============================================================================
-
-def dkeys(dict):
-    """ Utility function to return the keys of a dict in sorted order
-    so that the iteration order is guaranteed to be the same. Blame
-    python3 for being FUBAR'd."""
-
-    return sorted(list(dict.keys()))
-
-def skeys(set):
-    """ Utility function to return the items of a set in sorted order
-    so that the iteration order is guaranteed to be the same. Blame
-    python3 for being FUBAR'd."""
-    return sorted(list(set))
-    
-def createGroups(sizes, comm):
-    """
-    Create groups takes a list of sizes, and creates new MPI
-    communicators coorsponding to those sizes. This is typically used
-    for generating the communicators for an aerostructural analysis. 
-
-    Parameters
-    ----------
-    sizes : list or array
-        List or integer array of the sizes of each split comm
-    comm : MPI intracomm
-        The communicator to split. comm.size must equal sum(sizes)
-        """
-
-    nGroups = len(sizes)
-    nProc_total  = sum(sizes)
-    if not(comm.size == nProc_total):
-        raise MPError('Cannot split comm. Comm has %d processors, but\
-        requesting to split into %d.'%(comm.size, nProc_total))
-
-    # Create a cumulative size array
-    cumGroups = [0]*(nGroups+1)
-    cumGroups[0] = 0   
-
-    for igroup in range(nGroups):
-        cumGroups[igroup+1] = cumGroups[igroup] + sizes[igroup]
-
-    # Determine the member_key for each processor
-    for igroup in range(nGroups):
-        if comm.rank >= cumGroups[igroup] and \
-               comm.rank < cumGroups[igroup+1]:
-            member_key = igroup
-
-    new_comm = comm.Split(member_key)
-
-    flags = [False]*nGroups
-    flags[member_key] = True
-
-    return new_comm, flags
-
-def redirectIO(f):
-    """
-    Redirect stdout/stderr to the given file handle.
-    Based on: http://eli.thegreenplace.net/2015/redirecting-all-kinds-of-stdout-in-python/.
-    Written by Bret Naylor
-    """
-    original_stdout_fd = sys.stdout.fileno()
-    original_stderr_fd = sys.stderr.fileno()
-
-    sys.stdout.flush()
-    sys.stderr.flush()
-
-    # Flush and close sys.stdout/err - also closes the file descriptors (fd)
-    sys.stdout.close()
-    sys.stderr.close()
-
-    # Make original_stdout_fd point to the same file as to_fd
-    os.dup2(f.fileno(), original_stdout_fd)
-    os.dup2(f.fileno(), original_stderr_fd)
-
-    # Create a new sys.stdout that points to the redirected fd
-
-    if sys.version_info >= (3, 0):
-        # For Python 3.x
-        sys.stdout = io.TextIOWrapper(os.fdopen(original_stdout_fd, 'wb'))
-        sys.stderr = io.TextIOWrapper(os.fdopen(original_stderr_fd, 'wb'))
-    else:
-        sys.stdout = os.fdopen(original_stdout_fd, 'wb', 0) # 0 makes them unbuffered
-        sys.stderr = os.fdopen(original_stderr_fd, 'wb', 0)
-        
 # =============================================================================
 # MultiPoint Class
 # =============================================================================
 class multiPointSparse(object):
     """
     Create the multiPoint class on the provided comm.
-        
+
     Parameters
     ----------
     gcomm : MPI.Intracomm
         Global MPI communicator from which all processor groups
-        are created. It is usually MPI_COMM_WORLD but may be 
-        another intraCommunicator that has already been created. 
+        are created. It is usually MPI_COMM_WORLD but may be
+        another intraCommunicator that has already been created.
 
     Examples
     --------
@@ -163,7 +34,7 @@ class multiPointSparse(object):
     define 5 python functions:
 
     #. Evaluate functions for cruise::
-    
+
          def cruiseObj(x):
              funcs = {} # Fill up with functions
              ...
@@ -197,7 +68,7 @@ class multiPointSparse(object):
              funcs['new_func'] = combination_of_funcs
              ...
              return funcs
-    
+
     >>> MP = multiPointSparse.multiPoint(MPI.COMM_WORLD)
     >>> MP.addProcessorSet('cruise', 3, 32)
     >>> MP.addProcessorSet('maneuver', 2, [10, 20])
@@ -223,8 +94,9 @@ class multiPointSparse(object):
     Notes
     -----
     multiPointSparse requires useGroups=True (default) when creating
-    the optProb (Optimization instance). 
+    the optProb (Optimization instance).
     """
+
     def __init__(self, gcomm):
         assert type(gcomm) == MPI.Intracomm
         self.gcomm = gcomm
@@ -240,7 +112,7 @@ class multiPointSparse(object):
         # User-specified function
         self.userObjCon = None
         self.nUserObjConArgs = None
-        
+
         # Information used for determining keys for CS loop
         self.conKeys = set()
         self.outputWRT = {}
@@ -256,11 +128,11 @@ class multiPointSparse(object):
     def addProcessorSet(self, setName, nMembers, memberSizes):
         """
         A Processor set is defined as one or more groups of processors
-        that use the same obj() and sens() froutines. Members of
-        processor sets typically, but not necessairly, return the same
+        that use the same obj() and sens() routines. Members of
+        processor sets typically, but not necessarily, return the same
         number of functions. In all cases, the function names must be
-        unique. 
-        
+        unique.
+
         Parameters
         ----------
         setName : str
@@ -270,32 +142,30 @@ class multiPointSparse(object):
             Number of members in the set.
 
         memberSizes : int, iteratable
-            Number of processors on each set. If an iteger is suppled all\
-            members use the same number of processors.\
-            If a list or array is provided, a different number of processors\
-            on each member can be specified. 
+            Number of processors on each set. If an integer is supplied all
+            members use the same number of processors.
+            If a list or array is provided, a different number of processors
+            on each member can be specified.
 
         Examples
         --------
         >>> MP.addProcessorSet('cruise', 3, 32)
         >>> MP.addProcessorSet('maneuver', 2, [10, 20])
         """
-        # Lets let the user explictly set nMembers to 0. This is
-        # equilivant to just turning off that proc set. 
+        # Lets let the user explicitly set nMembers to 0. This is
+        # equalevent to just turning off that proc set.
         if nMembers == 0:
             self.dummyPSet.add(setName)
         else:
             nMembers = int(nMembers)
-            memberSizes = numpy.atleast_1d(memberSizes)
+            memberSizes = np.atleast_1d(memberSizes)
             if len(memberSizes) == 1:
-                memberSizes = numpy.ones(nMembers)*memberSizes[0]
+                memberSizes = np.ones(nMembers) * memberSizes[0]
             else:
                 if len(memberSizes) != nMembers:
-                    raise MPError('The suppliled memberSizes list is not \
-     the correct length.')
+                    raise MPError("The supplied memberSizes list is not the correct length.")
 
-            self.pSet[setName] = procSet(setName, nMembers, memberSizes,
-                                         len(self.pSet))
+            self.pSet[setName] = procSet(setName, nMembers, memberSizes, len(self.pSet))
 
     def createCommunicators(self):
         """
@@ -307,17 +177,17 @@ class multiPointSparse(object):
         -------
         comm : MPI.Intracomm
             This is the communicator for the member of the procSet. Basically,
-            this is the communciator that the (parallel) analyais should be
-            created on 
+            this is the communciator that the (parallel) analysis should be
+            created on
         setComm : MPI.Intracomm
-            This is the communicator that spans the entire processor set. 
+            This is the communicator that spans the entire processor set.
         setFlags : dict
             This is a dictionary whose entry for \"setName\", as specified in
-            addProcessorSet() is True on a processor belonging to that set. 
+            addProcessorSet() is True on a processor belonging to that set.
         groupFlags : list
-            This is list is used to destinguish between members within
+            This is list is used to distinguish between members within
             a processor set. This list of of length nMembers and the
-            ith entry is true for the ith group. 
+            ith entry is true for the ith group.
         ptID : int
             This is the index of the group that this processor belongs to
 
@@ -336,25 +206,23 @@ class multiPointSparse(object):
 
         # Check the sizes
         if nProc < self.gcomm.size or nProc > self.gcomm.size:
-            raise MPError('multiPointSparse must be called with EXACTLY\
- %d processors.'% (nProc))
+            raise MPError("multiPointSparse must be called with EXACTLY %d processors." % (nProc))
 
         # Create a cumulative size array
         setCount = len(self.pSet)
-        setSizes = numpy.zeros(setCount)
+        setSizes = np.zeros(setCount)
         for setName in dkeys(self.pSet):
             setSizes[self.pSet[setName].setID] = self.pSet[setName].nProc
-        
-        cumSets = numpy.zeros(setCount+1,'intc')
+
+        cumSets = np.zeros(setCount + 1, "intc")
         for i in range(setCount):
-            cumSets[i+1] = cumSets[i] + setSizes[i]
+            cumSets[i + 1] = cumSets[i] + setSizes[i]
 
         setFlags = {}
 
         # Determine the member_key for each processor
         for key in dkeys(self.pSet):
-            if self.gcomm.rank >= cumSets[self.pSet[key].setID] and \
-                    self.gcomm.rank < cumSets[self.pSet[key].setID+1]:
+            if self.gcomm.rank >= cumSets[self.pSet[key].setID] and self.gcomm.rank < cumSets[self.pSet[key].setID + 1]:
                 memberKey = self.pSet[key].setID
                 setFlags[self.pSet[key].setName] = True
             else:
@@ -380,7 +248,7 @@ class multiPointSparse(object):
         # Now just append the dummy procSets:
         for key in skeys(self.dummyPSet):
             self.setFlags[key] = False
-            
+
         self.pSetRoot = {}
         for key in dkeys(self.pSet):
             self.pSetRoot[key] = cumSets[self.pSet[key].setID]
@@ -397,7 +265,7 @@ class multiPointSparse(object):
         setName : str
             The name of the set that this processor belongs to.
         """
-        
+
         for iset in dkeys(self.setFlags):
             if self.setFlags[iset]:
                 return iset
@@ -422,7 +290,7 @@ class multiPointSparse(object):
             entry has key defined by 'setName' and contains a list of size
             nMembers, each entry of which is the path to the created
             directory
-                    
+
         Examples
         --------
         >>> MP = multiPointSparse.multiPoint(MPI.COMM_WORLD)
@@ -433,22 +301,22 @@ class multiPointSparse(object):
         {'cruise': ['/home/user/output/cruise_0','/home/user/output/cruise_1',
                     '/home/user/output/cruise_2'],
          'maneuver':['/home/user/output/maneuver_0','/home/user/output/maneuver_1']}
-         """
-            
-        if len(self.pSet) == 0: 
+        """
+
+        if len(self.pSet) == 0:
             return
 
         ptDirs = {}
         for key in dkeys(self.pSet):
             ptDirs[key] = []
             for i in range(self.pSet[key].nMembers):
-                dirName = rootDir + '/%s_%d'% (self.pSet[key].setName, i)
+                dirName = rootDir + "/%s_%d" % (self.pSet[key].setName, i)
                 ptDirs[key].append(dirName)
 
-                if self.gcomm.rank == 0: # Only global root proc makes
-                                         # directories
-                    os.system('mkdir -p %s'%(dirName))
-                 
+                if self.gcomm.rank == 0:  # Only global root proc makes
+                    # directories
+                    os.system("mkdir -p %s" % (dirName))
+
         return ptDirs
 
     def setProcSetObjFunc(self, setName, func):
@@ -460,18 +328,17 @@ class multiPointSparse(object):
         setName : str
             Name of set we are setting the function for
         func : Python function
-            Python function handle 
-            """
+            Python function handle
+        """
         if setName in self.dummyPSet:
-            return 
+            return
         if setName not in self.pSet:
-            raise MPError("setName '%s' has not been added with "
-                          "addProcessorSet."%setName)
+            raise MPError("setName '%s' has not been added with addProcessorSet." % setName)
         if not isinstance(func, types.FunctionType):
-            raise MPError('func must be a Python function handle.')
+            raise MPError("func must be a Python function handle.")
 
         self.pSet[setName].objFunc = [func]
-        
+
     def setProcSetSensFunc(self, setName, func):
         """
         Set the python function handle to compute the derivative of
@@ -482,15 +349,14 @@ class multiPointSparse(object):
         setName : str
             Name of set we are setting the function for
         func : Python function
-            Python function handle 
+            Python function handle
         """
         if setName in self.dummyPSet:
-            return 
+            return
         if setName not in self.pSet:
-            raise MPError("setName '%s' has not been added with "
-                          "addProcessorSet."%setName)
+            raise MPError("setName '%s' has not been added with addProcessorSet." % setName)
         if not isinstance(func, types.FunctionType):
-            raise MPError('func must be a Python function handle.')
+            raise MPError("func must be a Python function handle.")
 
         self.pSet[setName].sensFunc = [func]
 
@@ -503,18 +369,17 @@ class multiPointSparse(object):
         setName : str
             Name of set we are setting the function for
         func : Python function
-            Python function handle 
-            """
+            Python function handle
+        """
         if setName in self.dummyPSet:
-            return 
+            return
         if setName not in self.pSet:
-            raise MPError("setName '%s' has not been added with "
-                          "addProcessorSet."%setName)
+            raise MPError("setName '%s' has not been added with addProcessorSet." % setName)
         if not isinstance(func, types.FunctionType):
-            raise MPError('func must be a Python function handle.')
+            raise MPError("func must be a Python function handle.")
 
         self.pSet[setName].objFunc.append(func)
-        
+
     def addProcSetSensFunc(self, setName, func):
         """
         Add an additional python function handle to compute the
@@ -525,49 +390,44 @@ class multiPointSparse(object):
         setName : str
             Name of set we are setting the function for
         func : Python function
-            Python function handle 
+            Python function handle
 
-            """
+        """
         if setName in self.dummyPSet:
-            return 
+            return
 
         if setName not in self.pSet:
-            raise MPError("setName '%s' has not been added with "
-                          "addProcessorSet."%setName)
+            raise MPError("setName '%s' has not been added with addProcessorSet." % setName)
         if not isinstance(func, types.FunctionType):
-            raise MPError('func must be a Python function handle.')
+            raise MPError("func must be a Python function handle.")
 
         self.pSet[setName].sensFunc.append(func)
-        
+
     def setObjCon(self, func):
         """
         Set the python function handle to compute the final objective
-        and constriaints that are combinations of the functionals.
+        and constraints that are combinations of the functionals.
 
         Parameters
         ----------
         func : Python function
-            Python function handle 
-            """
+            Python function handle
+        """
         if not isinstance(func, types.FunctionType):
-            raise MPError('func must be a Python function handle.')
+            raise MPError("func must be a Python function handle.")
 
-        # Also do some checking on function prototype to make sure it
-        # is ok:
-        argSpec = inspect.getargspec(func)
-        if (argSpec.varargs is not None or
-            argSpec.keywords is not None or
-            argSpec.defaults is not None or
-            len(argSpec.args) not in [1, 2, 3]):
-            raise MPError("The function signature for the function given "
-                          "to 'setObjCon' is invalid. It must be: "
-                          "def objCon(funcs):, def objCon(funcs, printOK): "
-                          "or def objCon(funcs, printOK, passThroughFuncs):")
-        
+        # Also do some checking on function prototype to make sure it is ok:
+        sig = inspect.signature(func)
+        if len(sig.parameters) not in [1, 2, 3]:
+            raise MPError(
+                "The function signature for the function given to 'setObjCon' is invalid. It must be: "
+                + "def objCon(funcs):, def objCon(funcs, printOK): or def objCon(funcs, printOK, passThroughFuncs):"
+            )
+
         # Now we know that there are exactly one or two arguments.
-        self.nUserObjConArgs = len(argSpec.args)
+        self.nUserObjConArgs = len(sig.parameters)
         self.userObjCon = func
-       
+
     def setOptProb(self, optProb):
         """
         Set the optimization problem that this multiPoint object will
@@ -575,15 +435,15 @@ class multiPointSparse(object):
         assemble the gradients. If the optProb is not 'finished', it
         will done so here. Therefore, this function is collective on
         the comm that optProb is built on. multiPoint sparse does
-        *not* hold a reference to optProb so no additional cahnges can
-        be made to optProb after this function is called. 
-        
+        *not* hold a reference to optProb so no additional changes can
+        be made to optProb after this function is called.
+
         Parameters
         ----------
         optProb : pyOptSparse optimization problem class
-            The optProb object to use 
-            """
-       
+            The optProb object to use
+        """
+
         optProb.finalizeDesignVariables()
         optProb.finalizeConstraints()
 
@@ -603,31 +463,34 @@ class multiPointSparse(object):
         for dvGroup in dkeys(optProb.variables):
             ss = optProb.dvOffset[dvGroup]
             self.dvSize[dvGroup] = ss[1] - ss[0]
-            
+
         self.conKeys = set(self.conKeys)
 
         # Check the dvsAsFuncs names to make sure they are *actually*
         # design variables and raise error
         for dv in self.dvsAsFuncs:
             if dv not in optProb.variables:
-                raise MPError("The supplied design variable '%s' in "
-                              "addDVsAsFunctions() call does not exist "
-                              "in the supplied Optimization object."%dv)
+                raise MPError(
+                    (
+                        "The supplied design variable '{}' in addDVsAsFunctions() call"
+                        + " does not exist in the supplied Optimization object."
+                    ).format(dv)
+                )
 
     def addDVsAsFunctions(self, dvs):
         """This function allows you to specify a list of design variables to
-        be explictly used as functions. Essentially, we just copy the
-        values of the DVs directly into keys in 'fucncs' and
+        be explicitly used as functions. Essentially, we just copy the
+        values of the DVs directly into keys in 'funcs' and
         automatically generate an identity jacobian. This allows the
         remainder of the objective/sensitivity computations to be
-        proceeed as per usual. 
+        proceed as per usual.
 
         Parameters
         ----------
         dvs : string or list of strings
            The DV names the user wants to use directly as functions
         """
-        
+
         if type(dvs) == str:
             self.dvsAsFuncs.append(dvs)
         elif type(dvs) == list:
@@ -635,7 +498,7 @@ class multiPointSparse(object):
 
     def addConsAsObjConInputs(self, cons):
         """
-        This function allows functions to be used both as constraints, 
+        This function allows functions to be used both as constraints,
         as well as inputs to the ObjCon, therefore no longer bypassed.
 
         Parameters
@@ -643,19 +506,19 @@ class multiPointSparse(object):
         cons : string or list of strings
            The constraint names the user wants to use as ObjCon inputs
         """
-        
+
         if type(cons) == str:
             self.consAsInputs.append(cons)
         elif type(cons) == list:
             self.consAsInputs.extend(cons)
-        
+
     def obj(self, x):
 
         """
         This is a built-in objective function that is designed to be
         used directly as an objective function with pyOptSparse. The
         user should not use this function directly, instead see the
-        class documentation for the inteded usage. 
+        class documentation for the intended usage.
 
         Parameters
         ----------
@@ -663,38 +526,40 @@ class multiPointSparse(object):
             Dictionary of variables returned from pyOptSparse
         """
         for key in dkeys(self.pSet):
-            if self.setFlags[key]: 
-                # Run "obj" funtion to generate functionals
-                res = {'fail':False}
+            if self.setFlags[key]:
+                # Run "obj" function to generate functionals
+                res = {"fail": False}
                 for func in self.pSet[key].objFunc:
                     tmp = func(x)
                     if tmp is None:
-                        raise MPError("No return from user supplied objective "
-                                      "function for pSet %s. Functional "
-                                      "derivatives must be returned in a "
-                                      "dictionary."% key)
+                        raise MPError(
+                            (
+                                "No return from user supplied objective function for pSet {}. "
+                                + "Functional derivatives must be returned in a dictionary."
+                            ).format(key)
+                        )
 
-                    if 'fail' in tmp:
-                        res['fail'] = bool(tmp.pop('fail') or res['fail'])
+                    if "fail" in tmp:
+                        res["fail"] = bool(tmp.pop("fail") or res["fail"])
                     res.update(tmp)
-                    
+
         if self.objCommPattern is None:
             # On the first pass we need to determine the (one-time)
             # communication pattern
 
             # Send all the keys
             allKeys = self.gcomm.allgather(sorted(list(res.keys())))
-           
-            self.objCommPattern = dict()  
 
-            for i in range(len(allKeys)): # This is looping over processors
-                for key in allKeys[i]: # This loops over keys from proc
+            self.objCommPattern = dict()
+
+            for i in range(len(allKeys)):  # This is looping over processors
+                for key in allKeys[i]:  # This loops over keys from proc
                     if key not in self.objCommPattern:
-                        if key != 'fail':
+                        if key != "fail":
                             # Only add on the lowest proc and ignore on higher
                             # ones
                             self.objCommPattern[key] = i
-              
+
         # Perform Communication of functionals
         allFuncs = dict()
         for key in dkeys(self.objCommPattern):
@@ -704,10 +569,10 @@ class multiPointSparse(object):
                 tmp = self.gcomm.bcast(None, root=self.objCommPattern[key])
 
             allFuncs[key] = tmp
-          
+
         # Simply do an allReduce on the fail flag:
-        fail = self.gcomm.allreduce(res['fail'], op=MPI.LOR)
-        
+        fail = self.gcomm.allreduce(res["fail"], op=MPI.LOR)
+
         # Add in the extra DVs as Funcs...can do this on all procs
         # since all procs have the same x
         for dv in self.dvsAsFuncs:
@@ -715,14 +580,14 @@ class multiPointSparse(object):
 
         # Save the functions since we need these for the derivatives
         self.funcs = copy.deepcopy(allFuncs)
-  
+
         # Determine which additional keys are necessary:
         funckeys = set(allFuncs.keys())
         # Input Keys are the input variables to the objCon function
         # Output Keys are the output variables from the objCon function
-        self.inputKeys = funckeys.difference(self.conKeys)   # input = func - con
+        self.inputKeys = funckeys.difference(self.conKeys)  # input = func - con
         self.outputKeys = self.conKeys.difference(funckeys)  # output = con - func
-        self.passThroughKeys = funckeys.intersection(self.conKeys)   # passThrough = func & con
+        self.passThroughKeys = funckeys.intersection(self.conKeys)  # passThrough = func & con
 
         # Manage any keys that are both inputs and constraints (consAsInputs)
         # Check consAsFuncs only contains keys contained in passThoughKeys
@@ -732,25 +597,25 @@ class multiPointSparse(object):
             self.consAsInputs = set(self.consAsInputs)
             self.consAsInputs.intersection_update(self.passThroughKeys)
             self.inputKeys.update(self.consAsInputs)
-            self.passThroughKeys.difference_update(self.consAsInputs)  
-               
-        inputFuncs = self._extractKeys(allFuncs, self.inputKeys)
-        passThroughFuncs = self._extractKeys(allFuncs, self.passThroughKeys)
+            self.passThroughKeys.difference_update(self.consAsInputs)
+
+        inputFuncs = _extractKeys(allFuncs, self.inputKeys)
+        passThroughFuncs = _extractKeys(allFuncs, self.passThroughKeys)
         funcs = self._userObjConWrap(inputFuncs, True, passThroughFuncs)
-        
+
         # Add the pass-through ones back:
         funcs.update(passThroughFuncs)
 
         (funcs, fail) = self.gcomm.bcast((funcs, fail), root=0)
 
         return funcs, fail
-    
+
     def sens(self, x, funcs):
         """
-        This is a built-in sensitity function that is designed to be
-        used directly as a the sensitivty function with
+        This is a built-in sensitivity function that is designed to be
+        used directly as a the sensitivity function with
         pyOptSparse. The user should not use this function directly,
-        instead see the class documentation for the intended usage. 
+        instead see the class documentation for the intended usage.
 
         Parameters
         ----------
@@ -758,18 +623,20 @@ class multiPointSparse(object):
             Dictionary of variables returned from pyOptSparse
         """
         for key in dkeys(self.pSet):
-            if self.setFlags[key]: 
-                # Run "sens" funtion to functionals sensitivities
-                res = {'fail':False}
+            if self.setFlags[key]:
+                # Run "sens" function to functionals sensitivities
+                res = {"fail": False}
                 for func in self.pSet[key].sensFunc:
                     tmp = func(x, funcs)
                     if tmp is None:
-                        raise MPError("No return from user supplied sensitivity "
-                                      "function for pSet %s. Functional "
-                                      "derivatives must be returned in a "
-                                      "dictionary."% key)
-                    if 'fail' in tmp:
-                        res['fail'] = bool(tmp.pop('fail') or res['fail'])
+                        raise MPError(
+                            (
+                                "No return from user supplied sensitivity function for pSet {}. "
+                                + "Functional derivatives must be returned in a dictionary."
+                            ).format(key)
+                        )
+                    if "fail" in tmp:
+                        res["fail"] = bool(tmp.pop("fail") or res["fail"])
 
                     res.update(tmp)
 
@@ -779,13 +646,13 @@ class multiPointSparse(object):
 
             # Send all the keys
             allKeys = self.gcomm.allgather(sorted(list(res.keys())))
-           
-            self.sensCommPattern = dict()  
 
-            for i in range(len(allKeys)): # This is looping over processors
-                for key in allKeys[i]: # This loops over keys from proc
+            self.sensCommPattern = dict()
+
+            for i in range(len(allKeys)):  # This is looping over processors
+                for key in allKeys[i]:  # This loops over keys from proc
                     if key not in self.sensCommPattern:
-                        if key != 'fail':
+                        if key != "fail":
                             # Only add on the lowest proc and ignore on higher
                             # ones
                             self.sensCommPattern[key] = i
@@ -797,19 +664,19 @@ class multiPointSparse(object):
                 tmp = self.gcomm.bcast(res[key], root=self.sensCommPattern[key])
             else:
                 tmp = self.gcomm.bcast(None, root=self.sensCommPattern[key])
- 
+
             funcSens[key] = tmp
-           
+
         # Simply do an allReduce on the fail flag:
-        fail = self.gcomm.allreduce(res['fail'], op=MPI.LOR)
+        fail = self.gcomm.allreduce(res["fail"], op=MPI.LOR)
 
         # Add in the sensitivity of the extra DVs as Funcs...This will
         # just be an identity matrix
         for dv in self.dvsAsFuncs:
-            if numpy.isscalar(x[dv]) or len(numpy.atleast_1d(x[dv])) == 1:
-                funcSens[dv] = {dv:numpy.eye(1)}
+            if np.isscalar(x[dv]) or len(np.atleast_1d(x[dv])) == 1:
+                funcSens[dv] = {dv: np.eye(1)}
             else:
-                funcSens[dv] = {dv:numpy.eye(len(x[dv]))}
+                funcSens[dv] = {dv: np.eye(len(x[dv]))}
 
         # Now we have to perform the CS loop over the user-supplied
         # objCon function to generate the derivatives of our final
@@ -819,9 +686,9 @@ class multiPointSparse(object):
 
         gcon = {}
         # Extract/Complexify just the keys we need:
-        passThroughFuncs = self._extractKeys(self.funcs, self.passThroughKeys)
-        cFuncs = self._extractKeys(self.funcs, self.inputKeys)
-        cFuncs = self._complexifyFuncs(cFuncs, self.inputKeys)
+        passThroughFuncs = _extractKeys(self.funcs, self.passThroughKeys)
+        cFuncs = _extractKeys(self.funcs, self.inputKeys)
+        cFuncs = _complexifyFuncs(cFuncs, self.inputKeys)
 
         # Just copy the passthrough keys and keys that are both inputs and constrains:
         for pKey in self.passThroughKeys:
@@ -834,60 +701,41 @@ class multiPointSparse(object):
             gcon[oKey] = {}
             # Only loop over the DVsets that this constraint has:
             for dvSet in self.outputWRT[oKey]:
-                gcon[oKey][dvSet] = numpy.zeros(
-                    (self.outputSize[oKey], self.dvSize[dvSet]))
+                gcon[oKey][dvSet] = np.zeros((self.outputSize[oKey], self.dvSize[dvSet]))
 
-        for iKey in skeys(self.inputKeys): # Keys to peturb:
-            if numpy.isscalar(cFuncs[iKey]) or len(numpy.atleast_1d(cFuncs[iKey])) == 1:
+        for iKey in skeys(self.inputKeys):  # Keys to peturb:
+            if np.isscalar(cFuncs[iKey]) or len(np.atleast_1d(cFuncs[iKey])) == 1:
                 cFuncs[iKey] += 1e-40j
                 con = self._userObjConWrap(cFuncs, False, passThroughFuncs)
                 cFuncs[iKey] -= 1e-40j
 
-                # Extract the derivative of output key variables 
-                for oKey in skeys(self.outputKeys): 
-                    n = self.outputSize[oKey] 
+                # Extract the derivative of output key variables
+                for oKey in skeys(self.outputKeys):
+                    n = self.outputSize[oKey]
                     for dvSet in self.outputWRT[oKey]:
                         if dvSet in funcSens[iKey]:
-                            deriv = (numpy.imag(numpy.atleast_1d(con[oKey]))/1e-40).reshape((n, 1))
-                            gcon[oKey][dvSet] += numpy.dot(
-                                deriv, numpy.atleast_2d(funcSens[iKey][dvSet]))
+                            deriv = (np.imag(np.atleast_1d(con[oKey])) / 1e-40).reshape((n, 1))
+                            gcon[oKey][dvSet] += np.dot(deriv, np.atleast_2d(funcSens[iKey][dvSet]))
 
             else:
                 for i in range(len(cFuncs[iKey])):
                     cFuncs[iKey][i] += 1e-40j
                     con = self._userObjConWrap(cFuncs, False, passThroughFuncs)
                     cFuncs[iKey][i] -= 1e-40j
-                    
-                    # Extract the derivative of output key variables 
-                    for oKey in skeys(self.outputKeys): 
+
+                    # Extract the derivative of output key variables
+                    for oKey in skeys(self.outputKeys):
                         n = self.outputSize[oKey]
 
                         for dvSet in self.outputWRT[oKey]:
                             if dvSet in funcSens[iKey]:
-                                deriv = (numpy.imag(numpy.atleast_1d(con[oKey]))/1e-40).reshape((n, 1))
-                                gcon[oKey][dvSet] += \
-                                    numpy.dot(deriv, numpy.atleast_2d(
-                                        funcSens[iKey][dvSet][i, :]))
+                                deriv = (np.imag(np.atleast_1d(con[oKey])) / 1e-40).reshape((n, 1))
+                                gcon[oKey][dvSet] += np.dot(deriv, np.atleast_2d(funcSens[iKey][dvSet][i, :]))
 
         gcon = self.gcomm.bcast(gcon, root=0)
         fail = self.gcomm.bcast(fail, root=0)
 
         return gcon, fail
-
-    def _complexifyFuncs(self, funcs, keys):
-        """ Convert functionals to complex type"""
-        for key in skeys(keys):
-            if not numpy.isscalar(funcs[key]):
-                funcs[key] = numpy.array(funcs[key]).astype('D')
-
-        return funcs
-
-    def _extractKeys(self, funcs, keys):
-        """Return a copy of the dict with just the keys given in keys"""
-        newDict = {}
-        for key in skeys(keys):
-            newDict[key] = copy.deepcopy(funcs[key])
-        return newDict
 
     def _userObjConWrap(self, funcs, printOK, passThroughFuncs):
         """Small wrapper to determine how to call user function:"""
@@ -903,7 +751,8 @@ class multiPointSparse(object):
                 return self.userObjCon(funcs, printOK, passThroughFuncs)
             else:
                 return self.userObjCon(funcs, False, passThroughFuncs)
-            
+
+
 class procSet(object):
     """
     A container class to bundle information pretaining to a specific
@@ -911,11 +760,12 @@ class procSet(object):
     No error checking is performed since the multiPoint class should
     have already checked the inputs.
     """
+
     def __init__(self, setName, nMembers, memberSizes, setID):
         self.setName = setName
         self.nMembers = nMembers
         self.memberSizes = memberSizes
-        self.nProc = numpy.sum(self.memberSizes)
+        self.nProc = np.sum(self.memberSizes)
         self.gcomm = None
         self.objFunc = []
         self.sensFunc = []
@@ -931,21 +781,19 @@ class procSet(object):
         this comm as well
         """
         # Create a cumulative size array
-        cumGroups = numpy.zeros(self.nMembers + 1,'intc')
+        cumGroups = np.zeros(self.nMembers + 1, "intc")
 
         for i in range(self.nMembers):
-            cumGroups[i+1] = cumGroups[i] + self.memberSizes[i]
+            cumGroups[i + 1] = cumGroups[i] + self.memberSizes[i]
 
         # Determine the member_key (m_key) for each processor
         m_key = None
         for i in range(self.nMembers):
-            if (self.gcomm.rank >= cumGroups[i] and
-                self.gcomm.rank < cumGroups[i+1]):
+            if self.gcomm.rank >= cumGroups[i] and self.gcomm.rank < cumGroups[i + 1]:
                 m_key = i
-                
+
         self.comm = self.gcomm.Split(m_key)
-        self.groupFlags = numpy.zeros(self.nMembers, bool)
+        self.groupFlags = np.zeros(self.nMembers, bool)
         self.groupFlags[m_key] = True
         self.groupID = m_key
         self.cumGroups = cumGroups
-        
