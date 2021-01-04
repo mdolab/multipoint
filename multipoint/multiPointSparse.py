@@ -10,7 +10,8 @@ from collections import OrderedDict
 import numpy as np
 from mpi4py import MPI
 
-from .utils import MPError, dkeys, skeys, _extractKeys, _complexifyFuncs
+from .utils import dkeys, skeys, _extractKeys, _complexifyFuncs
+from baseclasses.utils import Error
 
 # =============================================================================
 # MultiPoint Class
@@ -163,7 +164,7 @@ class multiPointSparse(object):
                 memberSizes = np.ones(nMembers) * memberSizes[0]
             else:
                 if len(memberSizes) != nMembers:
-                    raise MPError("The supplied memberSizes list is not the correct length.")
+                    raise Error("The supplied memberSizes list is not the correct length.")
 
             self.pSet[setName] = procSet(setName, nMembers, memberSizes, len(self.pSet))
 
@@ -206,7 +207,7 @@ class multiPointSparse(object):
 
         # Check the sizes
         if nProc < self.gcomm.size or nProc > self.gcomm.size:
-            raise MPError("multiPointSparse must be called with EXACTLY %d processors." % (nProc))
+            raise Error("multiPointSparse must be called with EXACTLY %d processors." % (nProc))
 
         # Create a cumulative size array
         setCount = len(self.pSet)
@@ -333,9 +334,9 @@ class multiPointSparse(object):
         if setName in self.dummyPSet:
             return
         if setName not in self.pSet:
-            raise MPError("setName '%s' has not been added with addProcessorSet." % setName)
+            raise Error("setName '%s' has not been added with addProcessorSet." % setName)
         if not isinstance(func, types.FunctionType):
-            raise MPError("func must be a Python function handle.")
+            raise Error("func must be a Python function handle.")
 
         self.pSet[setName].objFunc = [func]
 
@@ -354,9 +355,9 @@ class multiPointSparse(object):
         if setName in self.dummyPSet:
             return
         if setName not in self.pSet:
-            raise MPError("setName '%s' has not been added with addProcessorSet." % setName)
+            raise Error("setName '%s' has not been added with addProcessorSet." % setName)
         if not isinstance(func, types.FunctionType):
-            raise MPError("func must be a Python function handle.")
+            raise Error("func must be a Python function handle.")
 
         self.pSet[setName].sensFunc = [func]
 
@@ -374,9 +375,9 @@ class multiPointSparse(object):
         if setName in self.dummyPSet:
             return
         if setName not in self.pSet:
-            raise MPError("setName '%s' has not been added with addProcessorSet." % setName)
+            raise Error("setName '%s' has not been added with addProcessorSet." % setName)
         if not isinstance(func, types.FunctionType):
-            raise MPError("func must be a Python function handle.")
+            raise Error("func must be a Python function handle.")
 
         self.pSet[setName].objFunc.append(func)
 
@@ -397,9 +398,9 @@ class multiPointSparse(object):
             return
 
         if setName not in self.pSet:
-            raise MPError("setName '%s' has not been added with addProcessorSet." % setName)
+            raise Error("setName '%s' has not been added with addProcessorSet." % setName)
         if not isinstance(func, types.FunctionType):
-            raise MPError("func must be a Python function handle.")
+            raise Error("func must be a Python function handle.")
 
         self.pSet[setName].sensFunc.append(func)
 
@@ -414,12 +415,12 @@ class multiPointSparse(object):
             Python function handle
         """
         if not isinstance(func, types.FunctionType):
-            raise MPError("func must be a Python function handle.")
+            raise Error("func must be a Python function handle.")
 
         # Also do some checking on function prototype to make sure it is ok:
         sig = inspect.signature(func)
         if len(sig.parameters) not in [1, 2, 3]:
-            raise MPError(
+            raise Error(
                 "The function signature for the function given to 'setObjCon' is invalid. It must be: "
                 + "def objCon(funcs):, def objCon(funcs, printOK): or def objCon(funcs, printOK, passThroughFuncs):"
             )
@@ -470,7 +471,7 @@ class multiPointSparse(object):
         # design variables and raise error
         for dv in self.dvsAsFuncs:
             if dv not in optProb.variables:
-                raise MPError(
+                raise Error(
                     (
                         "The supplied design variable '{}' in addDVsAsFunctions() call"
                         + " does not exist in the supplied Optimization object."
@@ -532,7 +533,7 @@ class multiPointSparse(object):
                 for func in self.pSet[key].objFunc:
                     tmp = func(x)
                     if tmp is None:
-                        raise MPError(
+                        raise Error(
                             (
                                 "No return from user supplied objective function for pSet {}. "
                                 + "Functional derivatives must be returned in a dictionary."
@@ -629,7 +630,7 @@ class multiPointSparse(object):
                 for func in self.pSet[key].sensFunc:
                     tmp = func(x, funcs)
                     if tmp is None:
-                        raise MPError(
+                        raise Error(
                             (
                                 "No return from user supplied sensitivity function for pSet {}. "
                                 + "Functional derivatives must be returned in a dictionary."

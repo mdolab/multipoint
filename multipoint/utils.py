@@ -69,7 +69,7 @@ def createGroups(sizes, comm):
     nGroups = len(sizes)
     nProc_total = sum(sizes)
     if not (comm.size == nProc_total):
-        raise MPError(
+        raise Error(
             "Cannot split comm. Comm has %d processors, but requesting to split into %d." % (comm.size, nProc_total)
         )
 
@@ -122,26 +122,3 @@ def redirectIO(f):
     else:
         sys.stdout = os.fdopen(original_stdout_fd, "wb", 0)  # 0 makes them unbuffered
         sys.stderr = os.fdopen(original_stderr_fd, "wb", 0)
-
-
-# =============================================================================
-# Error Handling Class
-# =============================================================================
-class MPError(Exception):
-    def __init__(self, message):
-        """
-        Format the error message in a box to make it clear this
-        was a explicitly raised exception.
-        """
-        msg = "\n+" + "-" * 78 + "+" + "\n" + "| multiPointSparse Error: "
-        i = 25
-        for word in message.split():
-            if len(word) + i + 1 > 78:  # Finish line and start new one
-                msg += " " * (78 - i) + "|\n| " + word + " "
-                i = 2 + len(word) + 1
-            else:
-                msg += word + " "
-                i += len(word) + 1
-        msg += " " * (79 - i) + "|\n" + "+" + "-" * 78 + "+" + "\n"
-        print(msg)
-        Exception.__init__(self)
