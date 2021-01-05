@@ -10,8 +10,8 @@ from collections import OrderedDict
 import numpy as np
 from mpi4py import MPI
 
-from .utils import dkeys, skeys, _extractKeys, _complexifyFuncs
 from baseclasses.utils import Error
+from .utils import dkeys, skeys, _extractKeys, _complexifyFuncs
 
 # =============================================================================
 # MultiPoint Class
@@ -94,7 +94,7 @@ class multiPointSparse(object):
 
     Notes
     -----
-    multiPointSparse requires useGroups=True (default) when creating
+    multiPointSparse requires ``useGroups=True`` (default) when creating
     the optProb (Optimization instance).
     """
 
@@ -154,7 +154,7 @@ class multiPointSparse(object):
         >>> MP.addProcessorSet('maneuver', 2, [10, 20])
         """
         # Lets let the user explicitly set nMembers to 0. This is
-        # equalevent to just turning off that proc set.
+        # equivalent to just turning off that proc set.
         if nMembers == 0:
             self.dummyPSet.add(setName)
         else:
@@ -178,19 +178,19 @@ class multiPointSparse(object):
         -------
         comm : MPI.Intracomm
             This is the communicator for the member of the procSet. Basically,
-            this is the communciator that the (parallel) analysis should be
-            created on
+            this is the communicator that the (parallel) analysis should be
+            created on.
         setComm : MPI.Intracomm
             This is the communicator that spans the entire processor set.
         setFlags : dict
-            This is a dictionary whose entry for \"setName\", as specified in
+            This is a dictionary whose entry for ``setName``, as specified in
             addProcessorSet() is True on a processor belonging to that set.
         groupFlags : list
-            This is list is used to distinguish between members within
+            This list is used to distinguish between members within
             a processor set. This list of of length nMembers and the
             ith entry is true for the ith group.
         ptID : int
-            This is the index of the group that this processor belongs to
+            This is the index of the group that this processor belongs to.
 
         Examples
         --------
@@ -482,7 +482,7 @@ class multiPointSparse(object):
         """This function allows you to specify a list of design variables to
         be explicitly used as functions. Essentially, we just copy the
         values of the DVs directly into keys in 'funcs' and
-        automatically generate an identity jacobian. This allows the
+        automatically generate an identity Jacobian. This allows the
         remainder of the objective/sensitivity computations to be
         proceed as per usual.
 
@@ -756,7 +756,7 @@ class multiPointSparse(object):
 
 class procSet(object):
     """
-    A container class to bundle information pretaining to a specific
+    A container class to bundle information pertaining to a specific
     processor set. It is not intended to be used externally by a user.
     No error checking is performed since the multiPoint class should
     have already checked the inputs.
