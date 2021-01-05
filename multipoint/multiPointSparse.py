@@ -137,7 +137,7 @@ class multiPointSparse(object):
         Parameters
         ----------
         setName : str
-            Name of process set. Process set names must be unique
+            Name of process set. Process set names must be unique.
 
         nMembers : int
             Number of members in the set.
@@ -150,8 +150,12 @@ class multiPointSparse(object):
 
         Examples
         --------
+        >>> MP = multiPointSparse.multiPoint(MPI.COMM_WORLD)
         >>> MP.addProcessorSet('cruise', 3, 32)
         >>> MP.addProcessorSet('maneuver', 2, [10, 20])
+
+        The ``cruise`` set creates 3 processor groups, each of size 32.
+        and the ``maneuver`` set creates 2 processor groups, of size 10 and 20.
         """
         # Lets let the user explicitly set nMembers to 0. This is
         # equivalent to just turning off that proc set.
@@ -194,9 +198,14 @@ class multiPointSparse(object):
 
         Examples
         --------
+        >>> MP = multiPointSparse.multiPoint(MPI.COMM_WORLD)
+        >>> MP.addProcessorSet('cruise', 3, 32)
+        >>> MP.addProcessorSet('maneuver', 2, [10, 20])
         >>> comm, setComm, setFlags, groupFlags, ptID = MP.createCommunicators()
-        >>> # The following will be true for all processors for the second member
-            # of the 'cruise' procSet'
+
+        The following will be true for all processors for the second member
+        of the ``cruise`` procSet.
+
         >>> setFlags['cruise'] and groupFlags[1] == True
         """
 
@@ -275,7 +284,7 @@ class multiPointSparse(object):
 
         """
         This function can be called only after all the procSets have
-        been added. This can facilitate distingushing output files
+        been added. This can facilitate distinguishing output files
         when there are a large number of procSets and/or members of
         procSets.
 
@@ -299,9 +308,11 @@ class multiPointSparse(object):
         >>> MP.addProcessorSet('maneuver', 2, [10, 20])
         >>> ptDirs = MP.createDirectories('/home/user/output/')
         >>> ptDirs
-        {'cruise': ['/home/user/output/cruise_0','/home/user/output/cruise_1',
+        {'cruise': ['/home/user/output/cruise_0',
+                    '/home/user/output/cruise_1',
                     '/home/user/output/cruise_2'],
-         'maneuver':['/home/user/output/maneuver_0','/home/user/output/maneuver_1']}
+         'maneuver': ['/home/user/output/maneuver_0',
+                      '/home/user/output/maneuver_1']}
         """
 
         if len(self.pSet) == 0:

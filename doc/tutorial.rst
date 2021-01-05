@@ -7,7 +7,7 @@ The goal of ``MultiPoint`` is to facilitate optimization problems that
 contain may different computations, all occurring in parallel, each of
 which may be parallel. ``MultiPoint`` effectively hides the required
 MPI communication from the user which results in more readable, more
-robust and easier to understand optimization scripts. 
+robust and easier to understand optimization scripts.
 
 For our simple example, lets assume we have two parallel codes, ``A``
 and ``B`` that we want to run at the same time for an
@@ -19,9 +19,9 @@ one copy of code ``B``. The analysis path would look like::
                     Objective
                     Functions
                  /------------\ Funcs
-             /---|   Code A   |--->----\             User supplied objcon 
+             /---|   Code A   |--->----\             User supplied objcon
              |   \------------/        |               /---------------\
-  Optimizer  |   /------------\ Funcs  |  Combine      | Combine funcs |  Return to 
+  Optimizer  |   /------------\ Funcs  |  Combine      | Combine funcs |  Return to
   ----->---- +---|   Code A   |--->--- +------>--------+ to get final  |----->------
   Input      |   \------------/        |  all funcs    | obj/con       |  optimizer
              |   /------------\ Funcs  |               \---------------/
@@ -34,7 +34,7 @@ processors, the second copy of code ``A`` requires 2 processors and
 the copy of code ``B`` requires 4 processors. For this case, we would
 require ``3 + 2 + 4 = 9`` total processors. Scripts using
 ``MultiPointSparse`` must be called with precisely the correct
-number of processors. 
+number of processors.
 
     >>> from mpi4py import MPI
     >>> from multipoint import multiPointSparse
@@ -60,19 +60,19 @@ At this point, you should have the following if you executed the code with 9 pro
 
 The input to each of the Objective Functions is the (unmodified) dictionary of
 optimization variables from pyOptSparse. Each code is then required to
-use the optimization variables as it requires. 
+use the optimization variables as it requires.
 
 The output from each of Objective functions ``funcs`` is a Python
 dictionary of computed values. **For computed values that are
 different for each member in a processorSet or between processorSets
 it is necessary to use unique keys**.  It is therefore necessary for
-the user to use an appropriate name mangling scheme. 
+the user to use an appropriate name mangling scheme.
 
 In the example above we have two copies of Code A. In typical usage,
 these two instances will produce the same *number* and *type* of
 quantities but at different operating conditions or other similar
 variation. Since we need these quantities for either the optimization
-objective or constraints, these values must be given a unique name. 
+objective or constraints, these values must be given a unique name.
 
 A simple name-mangling scheme is to simply use the ``ptID`` variable that
 is returned from the call to `createCommunicators`::
@@ -91,7 +91,7 @@ A similar thing can be done for ``B``::
 
 A ``processorSet`` is characterized by a single "objective" and
 "sensitivity" function. For each ``processorSet`` we must supply Python
-functions for the objective and sensitivity evaluation. 
+functions for the objective and sensitivity evaluation.
 
     >>> MP.setProcSetObjFunc('codeA', objA)
     >>> MP.setProcSetObjFunc('codeB', objB)
@@ -115,7 +115,7 @@ process is given below::
     all funcs    |                                |   output to pyOptSparse
   ------->------ + input     /--------\ output    |------------->----
                  \-------->--+ objcon | ----------/
-                   keys      \--------/ keys 
+                   keys      \--------/ keys
 
 ``multiPointSparse`` analyzes the optimization object and determine if
 any of the required constraint keys are already present in all funcs,
@@ -139,14 +139,14 @@ There all three values contribute to the objective, while ``A_0`` and
 ``pass-though keys``.
 
 Generally speaking, the computations in objcon should be simple and
-not overally computationally intensive. The sensitivity of the ``output
+not overly computationally intensive. The sensitivity of the ``output
 keys`` with respect to the ``input keys`` is computed automatically by
 ``multiPointSparse`` using the complex step method.
 
 .. warning::
-   Pass-through keys **cannot** be used in objcon. 
+   Pass-through keys **cannot** be used in objcon.
 
-.. warning:: 
+.. warning::
   Computations in objcon must be able to use complex
   number. Generally this will mean if numpy arrays are used, the
   ``dtype=complex`` keyword argument is used.
