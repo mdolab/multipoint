@@ -4,6 +4,7 @@ import io
 import copy
 from mpi4py import MPI
 import numpy as np
+from baseclasses.utils import Error
 
 
 def mpiPrint(msg, comm=None):
