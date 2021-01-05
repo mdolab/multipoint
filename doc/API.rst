@@ -1,10 +1,10 @@
 .. _multipoint_API:
 
-API Reference
-=============
+API
+===
 
 .. currentmodule:: multipoint.multiPointSparse
 
-.. autoclass:: multipoint.multiPointSparse
+.. autoclass:: multiPointSparse
     :members:
 
