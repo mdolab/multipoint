@@ -22,4 +22,5 @@ For stability we recommend cloning or checking out a tagged release.
    :maxdepth: 2
 
    tutorial
+   examples
    API
