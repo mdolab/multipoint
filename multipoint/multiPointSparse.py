@@ -10,7 +10,8 @@ from collections import OrderedDict
 import numpy as np
 from mpi4py import MPI
 
-from .utils import MPError, dkeys, skeys, _extractKeys, _complexifyFuncs
+from baseclasses.utils import Error
+from .utils import dkeys, skeys, _extractKeys, _complexifyFuncs
 
 # =============================================================================
 # MultiPoint Class
@@ -93,7 +94,7 @@ class multiPointSparse(object):
 
     Notes
     -----
-    multiPointSparse requires useGroups=True (default) when creating
+    multiPointSparse requires ``useGroups=True`` (default) when creating
     the optProb (Optimization instance).
     """
 
@@ -136,7 +137,7 @@ class multiPointSparse(object):
         Parameters
         ----------
         setName : str
-            Name of process set. Process set names must be unique
+            Name of process set. Process set names must be unique.
 
         nMembers : int
             Number of members in the set.
@@ -149,11 +150,15 @@ class multiPointSparse(object):
 
         Examples
         --------
+        >>> MP = multiPointSparse.multiPoint(MPI.COMM_WORLD)
         >>> MP.addProcessorSet('cruise', 3, 32)
         >>> MP.addProcessorSet('maneuver', 2, [10, 20])
+
+        The ``cruise`` set creates 3 processor groups, each of size 32.
+        and the ``maneuver`` set creates 2 processor groups, of size 10 and 20.
         """
         # Lets let the user explicitly set nMembers to 0. This is
-        # equalevent to just turning off that proc set.
+        # equivalent to just turning off that proc set.
         if nMembers == 0:
             self.dummyPSet.add(setName)
         else:
@@ -163,7 +168,7 @@ class multiPointSparse(object):
                 memberSizes = np.ones(nMembers) * memberSizes[0]
             else:
                 if len(memberSizes) != nMembers:
-                    raise MPError("The supplied memberSizes list is not the correct length.")
+                    raise Error("The supplied memberSizes list is not the correct length.")
 
             self.pSet[setName] = procSet(setName, nMembers, memberSizes, len(self.pSet))
 
@@ -177,25 +182,30 @@ class multiPointSparse(object):
         -------
         comm : MPI.Intracomm
             This is the communicator for the member of the procSet. Basically,
-            this is the communciator that the (parallel) analysis should be
-            created on
+            this is the communicator that the (parallel) analysis should be
+            created on.
         setComm : MPI.Intracomm
             This is the communicator that spans the entire processor set.
         setFlags : dict
-            This is a dictionary whose entry for \"setName\", as specified in
+            This is a dictionary whose entry for ``setName``, as specified in
             addProcessorSet() is True on a processor belonging to that set.
         groupFlags : list
-            This is list is used to distinguish between members within
+            This list is used to distinguish between members within
             a processor set. This list of of length nMembers and the
             ith entry is true for the ith group.
         ptID : int
-            This is the index of the group that this processor belongs to
+            This is the index of the group that this processor belongs to.
 
         Examples
         --------
+        >>> MP = multiPointSparse.multiPoint(MPI.COMM_WORLD)
+        >>> MP.addProcessorSet('cruise', 3, 32)
+        >>> MP.addProcessorSet('maneuver', 2, [10, 20])
         >>> comm, setComm, setFlags, groupFlags, ptID = MP.createCommunicators()
-        >>> # The following will be true for all processors for the second member
-            # of the 'cruise' procSet'
+
+        The following will be true for all processors for the second member
+        of the ``cruise`` procSet.
+
         >>> setFlags['cruise'] and groupFlags[1] == True
         """
 
@@ -206,7 +216,7 @@ class multiPointSparse(object):
 
         # Check the sizes
         if nProc < self.gcomm.size or nProc > self.gcomm.size:
-            raise MPError("multiPointSparse must be called with EXACTLY %d processors." % (nProc))
+            raise Error("multiPointSparse must be called with EXACTLY %d processors." % (nProc))
 
         # Create a cumulative size array
         setCount = len(self.pSet)
@@ -274,7 +284,7 @@ class multiPointSparse(object):
 
         """
         This function can be called only after all the procSets have
-        been added. This can facilitate distingushing output files
+        been added. This can facilitate distinguishing output files
         when there are a large number of procSets and/or members of
         procSets.
 
@@ -298,9 +308,11 @@ class multiPointSparse(object):
         >>> MP.addProcessorSet('maneuver', 2, [10, 20])
         >>> ptDirs = MP.createDirectories('/home/user/output/')
         >>> ptDirs
-        {'cruise': ['/home/user/output/cruise_0','/home/user/output/cruise_1',
+        {'cruise': ['/home/user/output/cruise_0',
+                    '/home/user/output/cruise_1',
                     '/home/user/output/cruise_2'],
-         'maneuver':['/home/user/output/maneuver_0','/home/user/output/maneuver_1']}
+         'maneuver': ['/home/user/output/maneuver_0',
+                      '/home/user/output/maneuver_1']}
         """
 
         if len(self.pSet) == 0:
@@ -333,9 +345,9 @@ class multiPointSparse(object):
         if setName in self.dummyPSet:
             return
         if setName not in self.pSet:
-            raise MPError("setName '%s' has not been added with addProcessorSet." % setName)
+            raise Error("setName '%s' has not been added with addProcessorSet." % setName)
         if not isinstance(func, types.FunctionType):
-            raise MPError("func must be a Python function handle.")
+            raise Error("func must be a Python function handle.")
 
         self.pSet[setName].objFunc = [func]
 
@@ -354,9 +366,9 @@ class multiPointSparse(object):
         if setName in self.dummyPSet:
             return
         if setName not in self.pSet:
-            raise MPError("setName '%s' has not been added with addProcessorSet." % setName)
+            raise Error("setName '%s' has not been added with addProcessorSet." % setName)
         if not isinstance(func, types.FunctionType):
-            raise MPError("func must be a Python function handle.")
+            raise Error("func must be a Python function handle.")
 
         self.pSet[setName].sensFunc = [func]
 
@@ -374,9 +386,9 @@ class multiPointSparse(object):
         if setName in self.dummyPSet:
             return
         if setName not in self.pSet:
-            raise MPError("setName '%s' has not been added with addProcessorSet." % setName)
+            raise Error("setName '%s' has not been added with addProcessorSet." % setName)
         if not isinstance(func, types.FunctionType):
-            raise MPError("func must be a Python function handle.")
+            raise Error("func must be a Python function handle.")
 
         self.pSet[setName].objFunc.append(func)
 
@@ -397,9 +409,9 @@ class multiPointSparse(object):
             return
 
         if setName not in self.pSet:
-            raise MPError("setName '%s' has not been added with addProcessorSet." % setName)
+            raise Error("setName '%s' has not been added with addProcessorSet." % setName)
         if not isinstance(func, types.FunctionType):
-            raise MPError("func must be a Python function handle.")
+            raise Error("func must be a Python function handle.")
 
         self.pSet[setName].sensFunc.append(func)
 
@@ -414,12 +426,12 @@ class multiPointSparse(object):
             Python function handle
         """
         if not isinstance(func, types.FunctionType):
-            raise MPError("func must be a Python function handle.")
+            raise Error("func must be a Python function handle.")
 
         # Also do some checking on function prototype to make sure it is ok:
         sig = inspect.signature(func)
         if len(sig.parameters) not in [1, 2, 3]:
-            raise MPError(
+            raise Error(
                 "The function signature for the function given to 'setObjCon' is invalid. It must be: "
                 + "def objCon(funcs):, def objCon(funcs, printOK): or def objCon(funcs, printOK, passThroughFuncs):"
             )
@@ -470,7 +482,7 @@ class multiPointSparse(object):
         # design variables and raise error
         for dv in self.dvsAsFuncs:
             if dv not in optProb.variables:
-                raise MPError(
+                raise Error(
                     (
                         "The supplied design variable '{}' in addDVsAsFunctions() call"
                         + " does not exist in the supplied Optimization object."
@@ -481,7 +493,7 @@ class multiPointSparse(object):
         """This function allows you to specify a list of design variables to
         be explicitly used as functions. Essentially, we just copy the
         values of the DVs directly into keys in 'funcs' and
-        automatically generate an identity jacobian. This allows the
+        automatically generate an identity Jacobian. This allows the
         remainder of the objective/sensitivity computations to be
         proceed as per usual.
 
@@ -532,7 +544,7 @@ class multiPointSparse(object):
                 for func in self.pSet[key].objFunc:
                     tmp = func(x)
                     if tmp is None:
-                        raise MPError(
+                        raise Error(
                             (
                                 "No return from user supplied objective function for pSet {}. "
                                 + "Functional derivatives must be returned in a dictionary."
@@ -629,7 +641,7 @@ class multiPointSparse(object):
                 for func in self.pSet[key].sensFunc:
                     tmp = func(x, funcs)
                     if tmp is None:
-                        raise MPError(
+                        raise Error(
                             (
                                 "No return from user supplied sensitivity function for pSet {}. "
                                 + "Functional derivatives must be returned in a dictionary."
@@ -755,7 +767,7 @@ class multiPointSparse(object):
 
 class procSet(object):
     """
-    A container class to bundle information pretaining to a specific
+    A container class to bundle information pertaining to a specific
     processor set. It is not intended to be used externally by a user.
     No error checking is performed since the multiPoint class should
     have already checked the inputs.
