@@ -1,5 +1,5 @@
 # Multipoint
-[![Build Status](https://travis-ci.com/mdolab/multipoint.svg?branch=master)](https://travis-ci.com/mdolab/multipoint)
+[![Build Status](https://dev.azure.com/mdolab/Private/_apis/build/status/mdolab.multipoint?branchName=master)](https://dev.azure.com/mdolab/Private/_build/latest?definitionId=23&branchName=master)
 [![Documentation Status](https://readthedocs.com/projects/mdolab-multipoint/badge/?version=latest)](https://mdolab-multipoint.readthedocs-hosted.com/en/latest/?badge=latest)
 
 Provides utilities to facilitates distributed multipoint optimization with the MACH framework. 
