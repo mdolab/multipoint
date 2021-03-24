@@ -24,6 +24,11 @@ setup(
     packages=[
         "multipoint",
     ],
-    install_requires=["numpy>=1.16", "mpi4py>=3.0", "mdolab-baseclasses>=1.2.4"],
+    install_requires=[
+        "numpy>=1.16",
+        "mpi4py>=3.0",
+        "mdolab-baseclasses>=1.2.4",
+        "pyoptsparse>2.5.0"
+    ],
     classifiers=["Operating System :: OS Independent", "Programming Language :: Python"],
 )
