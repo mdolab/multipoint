@@ -455,9 +455,7 @@ class multiPointSparse(object):
         optProb : pyOptSparse optimization problem class
             The optProb object to use
         """
-
-        optProb.finalizeDesignVariables()
-        optProb.finalizeConstraints()
+        optProb.finalize()
 
         # Since there is no distinction between objective(s) and
         # constraints just put everything in conKeys, including the
