@@ -28,7 +28,9 @@ setup(
         "numpy>=1.16",
         "mpi4py>=3.0",
         "mdolab-baseclasses>=1.2.4",
-        "pyoptsparse>2.5.0"
     ],
+    extras_require={
+        "testing": ["pyoptsparse>=2.5.1"],
+    },
     classifiers=["Operating System :: OS Independent", "Programming Language :: Python"],
 )
