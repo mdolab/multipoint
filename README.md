@@ -1,6 +1,7 @@
 # Multipoint
 [![Build Status](https://dev.azure.com/mdolab/Public/_apis/build/status/mdolab.multipoint?branchName=master)](https://dev.azure.com/mdolab/Public/_build/latest?definitionId=24&branchName=master)
 [![Documentation Status](https://readthedocs.com/projects/mdolab-multipoint/badge/?version=latest)](https://mdolab-multipoint.readthedocs-hosted.com/en/latest/?badge=latest)
+[![codecov](https://codecov.io/gh/mdolab/multipoint/branch/master/graph/badge.svg?token=MNE2NTMLWD)](https://codecov.io/gh/mdolab/multipoint)
 
 Provides utilities to facilitates distributed multipoint optimization with the MACH framework. 
 
