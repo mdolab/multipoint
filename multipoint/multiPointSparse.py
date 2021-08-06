@@ -558,9 +558,9 @@ class multiPointSparse:
             # communication pattern
 
             # Send all the keys
-            allKeys = self.gcomm.allgather(sorted(list(res.keys())))
+            allKeys = self.gcomm.allgather(sorted(res.keys()))
 
-            self.objCommPattern = dict()
+            self.objCommPattern = {}
 
             for i in range(len(allKeys)):  # This is looping over processors
                 for key in allKeys[i]:  # This loops over keys from proc
@@ -571,7 +571,7 @@ class multiPointSparse:
                             self.objCommPattern[key] = i
 
         # Perform Communication of functionals
-        allFuncs = dict()
+        allFuncs = {}
         for key in dkeys(self.objCommPattern):
             if self.objCommPattern[key] == self.gcomm.rank:
                 tmp = self.gcomm.bcast(res[key], root=self.objCommPattern[key])
@@ -655,9 +655,9 @@ class multiPointSparse:
             # communication pattern
 
             # Send all the keys
-            allKeys = self.gcomm.allgather(sorted(list(res.keys())))
+            allKeys = self.gcomm.allgather(sorted(res.keys()))
 
-            self.sensCommPattern = dict()
+            self.sensCommPattern = {}
 
             for i in range(len(allKeys)):  # This is looping over processors
                 for key in allKeys[i]:  # This loops over keys from proc
@@ -668,7 +668,7 @@ class multiPointSparse:
                             self.sensCommPattern[key] = i
 
         # Perform Communication of functional (derivatives)
-        funcSens = dict()
+        funcSens = {}
         for key in dkeys(self.sensCommPattern):
             if self.sensCommPattern[key] == self.gcomm.rank:
                 tmp = self.gcomm.bcast(res[key], root=self.sensCommPattern[key])

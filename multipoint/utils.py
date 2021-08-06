@@ -22,7 +22,7 @@ def mpiPrint(msg, comm=None):
 # Utility create groups function
 # =============================================================================
 def _complexifyFuncs(funcs, keys):
-    """ Convert functionals to complex type"""
+    """Convert functionals to complex type"""
     for key in skeys(keys):
         if not np.isscalar(funcs[key]):
             funcs[key] = np.array(funcs[key]).astype("D")
@@ -38,19 +38,19 @@ def _extractKeys(funcs, keys):
     return newDict
 
 
-def dkeys(dict):
+def dkeys(d):
     """Utility function to return the keys of a dict in sorted order
     so that the iteration order is guaranteed to be the same. Blame
     python3 for being FUBAR'd."""
 
-    return sorted(list(dict.keys()))
+    return sorted(d.keys())
 
 
-def skeys(set):
+def skeys(s):
     """Utility function to return the items of a set in sorted order
     so that the iteration order is guaranteed to be the same. Blame
     python3 for being FUBAR'd."""
-    return sorted(list(set))
+    return sorted(s)
 
 
 def createGroups(sizes, comm):
