@@ -16,7 +16,7 @@ from .utils import dkeys, skeys, _extractKeys, _complexifyFuncs
 # =============================================================================
 # MultiPoint Class
 # =============================================================================
-class multiPointSparse(object):
+class multiPointSparse:
     """
     Create the multiPoint class on the provided comm.
 
@@ -763,7 +763,7 @@ class multiPointSparse(object):
                 return self.userObjCon(funcs, False, passThroughFuncs)
 
 
-class procSet(object):
+class procSet:
     """
     A container class to bundle information pertaining to a specific
     processor set. It is not intended to be used externally by a user.
