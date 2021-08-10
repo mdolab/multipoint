@@ -16,7 +16,7 @@ from .utils import dkeys, skeys, _extractKeys, _complexifyFuncs
 # =============================================================================
 # MultiPoint Class
 # =============================================================================
-class multiPointSparse(object):
+class multiPointSparse:
     """
     Create the multiPoint class on the provided comm.
 
@@ -99,7 +99,7 @@ class multiPointSparse(object):
     """
 
     def __init__(self, gcomm):
-        assert type(gcomm) == MPI.Intracomm
+        assert isinstance(gcomm, MPI.Intracomm)
         self.gcomm = gcomm
         self.pSet = OrderedDict()
         self.dummyPSet = set()
@@ -216,7 +216,7 @@ class multiPointSparse(object):
 
         # Check the sizes
         if nProc < self.gcomm.size or nProc > self.gcomm.size:
-            raise Error("multiPointSparse must be called with EXACTLY %d processors." % (nProc))
+            raise Error(f"multiPointSparse must be called with EXACTLY {nProc} processors.")
 
         # Create a cumulative size array
         setCount = len(self.pSet)
@@ -322,12 +322,12 @@ class multiPointSparse(object):
         for key in dkeys(self.pSet):
             ptDirs[key] = []
             for i in range(self.pSet[key].nMembers):
-                dirName = rootDir + "/%s_%d" % (self.pSet[key].setName, i)
+                dirName = os.path.join(rootDir, f"{self.pSet[key].setName}_{i}")
                 ptDirs[key].append(dirName)
 
                 if self.gcomm.rank == 0:  # Only global root proc makes
                     # directories
-                    os.system("mkdir -p %s" % (dirName))
+                    os.system(f"mkdir -p {dirName}")
 
         return ptDirs
 
@@ -345,7 +345,7 @@ class multiPointSparse(object):
         if setName in self.dummyPSet:
             return
         if setName not in self.pSet:
-            raise Error("setName '%s' has not been added with addProcessorSet." % setName)
+            raise Error(f"setName '{setName}' has not been added with addProcessorSet.")
         if not isinstance(func, types.FunctionType):
             raise Error("func must be a Python function handle.")
 
@@ -366,7 +366,7 @@ class multiPointSparse(object):
         if setName in self.dummyPSet:
             return
         if setName not in self.pSet:
-            raise Error("setName '%s' has not been added with addProcessorSet." % setName)
+            raise Error(f"setName '{setName}' has not been added with addProcessorSet.")
         if not isinstance(func, types.FunctionType):
             raise Error("func must be a Python function handle.")
 
@@ -386,7 +386,7 @@ class multiPointSparse(object):
         if setName in self.dummyPSet:
             return
         if setName not in self.pSet:
-            raise Error("setName '%s' has not been added with addProcessorSet." % setName)
+            raise Error(f"setName '{setName}' has not been added with addProcessorSet.")
         if not isinstance(func, types.FunctionType):
             raise Error("func must be a Python function handle.")
 
@@ -409,7 +409,7 @@ class multiPointSparse(object):
             return
 
         if setName not in self.pSet:
-            raise Error("setName '%s' has not been added with addProcessorSet." % setName)
+            raise Error(f"setName '{setName}' has not been added with addProcessorSet.")
         if not isinstance(func, types.FunctionType):
             raise Error("func must be a Python function handle.")
 
@@ -501,9 +501,9 @@ class multiPointSparse(object):
            The DV names the user wants to use directly as functions
         """
 
-        if type(dvs) == str:
+        if isinstance(dvs, str):
             self.dvsAsFuncs.append(dvs)
-        elif type(dvs) == list:
+        elif isinstance(dvs, list):
             self.dvsAsFuncs.extend(dvs)
 
     def addConsAsObjConInputs(self, cons):
@@ -517,9 +517,9 @@ class multiPointSparse(object):
            The constraint names the user wants to use as ObjCon inputs
         """
 
-        if type(cons) == str:
+        if isinstance(cons, str):
             self.consAsInputs.append(cons)
-        elif type(cons) == list:
+        elif isinstance(cons, list):
             self.consAsInputs.extend(cons)
 
     def obj(self, x):
@@ -558,9 +558,9 @@ class multiPointSparse(object):
             # communication pattern
 
             # Send all the keys
-            allKeys = self.gcomm.allgather(sorted(list(res.keys())))
+            allKeys = self.gcomm.allgather(sorted(res.keys()))
 
-            self.objCommPattern = dict()
+            self.objCommPattern = {}
 
             for i in range(len(allKeys)):  # This is looping over processors
                 for key in allKeys[i]:  # This loops over keys from proc
@@ -571,7 +571,7 @@ class multiPointSparse(object):
                             self.objCommPattern[key] = i
 
         # Perform Communication of functionals
-        allFuncs = dict()
+        allFuncs = {}
         for key in dkeys(self.objCommPattern):
             if self.objCommPattern[key] == self.gcomm.rank:
                 tmp = self.gcomm.bcast(res[key], root=self.objCommPattern[key])
@@ -655,20 +655,19 @@ class multiPointSparse(object):
             # communication pattern
 
             # Send all the keys
-            allKeys = self.gcomm.allgather(sorted(list(res.keys())))
+            allKeys = self.gcomm.allgather(sorted(res.keys()))
 
-            self.sensCommPattern = dict()
+            self.sensCommPattern = {}
 
             for i in range(len(allKeys)):  # This is looping over processors
                 for key in allKeys[i]:  # This loops over keys from proc
                     if key not in self.sensCommPattern:
                         if key != "fail":
-                            # Only add on the lowest proc and ignore on higher
-                            # ones
+                            # Only add on the lowest proc and ignore on higher ones
                             self.sensCommPattern[key] = i
 
         # Perform Communication of functional (derivatives)
-        funcSens = dict()
+        funcSens = {}
         for key in dkeys(self.sensCommPattern):
             if self.sensCommPattern[key] == self.gcomm.rank:
                 tmp = self.gcomm.bcast(res[key], root=self.sensCommPattern[key])
@@ -763,7 +762,7 @@ class multiPointSparse(object):
                 return self.userObjCon(funcs, False, passThroughFuncs)
 
 
-class procSet(object):
+class procSet:
     """
     A container class to bundle information pertaining to a specific
     processor set. It is not intended to be used externally by a user.

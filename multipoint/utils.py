@@ -22,7 +22,7 @@ def mpiPrint(msg, comm=None):
 # Utility create groups function
 # =============================================================================
 def _complexifyFuncs(funcs, keys):
-    """ Convert functionals to complex type"""
+    """Convert functionals to complex type"""
     for key in skeys(keys):
         if not np.isscalar(funcs[key]):
             funcs[key] = np.array(funcs[key]).astype("D")
@@ -38,19 +38,19 @@ def _extractKeys(funcs, keys):
     return newDict
 
 
-def dkeys(dict):
+def dkeys(d):
     """Utility function to return the keys of a dict in sorted order
     so that the iteration order is guaranteed to be the same. Blame
     python3 for being FUBAR'd."""
 
-    return sorted(list(dict.keys()))
+    return sorted(d.keys())
 
 
-def skeys(set):
+def skeys(s):
     """Utility function to return the items of a set in sorted order
     so that the iteration order is guaranteed to be the same. Blame
     python3 for being FUBAR'd."""
-    return sorted(list(set))
+    return sorted(s)
 
 
 def createGroups(sizes, comm):
@@ -116,10 +116,6 @@ def redirectIO(f):
 
     # Create a new sys.stdout that points to the redirected fd
 
-    if sys.version_info >= (3, 0):
-        # For Python 3.x
-        sys.stdout = io.TextIOWrapper(os.fdopen(original_stdout_fd, "wb"))
-        sys.stderr = io.TextIOWrapper(os.fdopen(original_stderr_fd, "wb"))
-    else:
-        sys.stdout = os.fdopen(original_stdout_fd, "wb", 0)  # 0 makes them unbuffered
-        sys.stderr = os.fdopen(original_stderr_fd, "wb", 0)
+    # For Python 3.x
+    sys.stdout = io.TextIOWrapper(os.fdopen(original_stdout_fd, "wb"))
+    sys.stderr = io.TextIOWrapper(os.fdopen(original_stderr_fd, "wb"))

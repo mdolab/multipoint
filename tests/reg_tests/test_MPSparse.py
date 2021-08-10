@@ -126,5 +126,5 @@ class TestMPSparse(unittest.TestCase):
         # check that funcSens contains all the objective and constraints derivs
         self.assertEquals(set(ALL_OBJCONS), set(funcsSens.keys()))
         # check that the derivs are wrt all DVs
-        for key, val in funcsSens.items():
+        for val in funcsSens.values():
             self.assertEquals(set(DVS), set(val.keys()))
