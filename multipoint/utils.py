@@ -1,6 +1,3 @@
-import os
-import sys
-import io
 import copy
 from mpi4py import MPI
 import numpy as np
@@ -92,30 +89,3 @@ def createGroups(sizes, comm):
     flags[member_key] = True
 
     return new_comm, flags
-
-
-def redirectIO(f):
-    """
-    Redirect stdout/stderr to the given file handle.
-    Based on: http://eli.thegreenplace.net/2015/redirecting-all-kinds-of-stdout-in-python/.
-    Written by Bret Naylor
-    """
-    original_stdout_fd = sys.stdout.fileno()
-    original_stderr_fd = sys.stderr.fileno()
-
-    sys.stdout.flush()
-    sys.stderr.flush()
-
-    # Flush and close sys.stdout/err - also closes the file descriptors (fd)
-    sys.stdout.close()
-    sys.stderr.close()
-
-    # Make original_stdout_fd point to the same file as to_fd
-    os.dup2(f.fileno(), original_stdout_fd)
-    os.dup2(f.fileno(), original_stderr_fd)
-
-    # Create a new sys.stdout that points to the redirected fd
-
-    # For Python 3.x
-    sys.stdout = io.TextIOWrapper(os.fdopen(original_stdout_fd, "wb"))
-    sys.stderr = io.TextIOWrapper(os.fdopen(original_stderr_fd, "wb"))
