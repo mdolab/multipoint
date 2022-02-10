@@ -17,7 +17,7 @@ def set1_obj(x):
     return funcs
 
 
-def set1_sens(x, funcs):
+def set1_sens(x, _funcs):
     rank = gcomm.rank
     g1_drag_deriv = {"v1": 2 * x["v1"] * (rank + 1), "v2": 0}
     g1_lift_deriv = {"v1": 2 * 3.14159 * (rank + 1), "v2": 0}
@@ -33,7 +33,7 @@ def set2_obj(x):
     return funcs
 
 
-def set2_sens(x, funcs):
+def set2_sens(x, _funcs):
     g2_drag_deriv = {"v1": 0, "v2": 3 * x["v2"] ** 2}
     funcsSens = {"set2_drag": g2_drag_deriv}
     return funcsSens
@@ -42,8 +42,8 @@ def set2_sens(x, funcs):
 def objCon(funcs, printOK):
     tmp = np.average(funcs["set1_drag"])
     funcs["total_drag"] = tmp + funcs["set2_drag"]
-    # if printOK:
-    #     print(funcs)
+    if printOK:
+        print(funcs)
     return funcs
 
 
@@ -124,7 +124,7 @@ class TestMPSparse(unittest.TestCase):
         # check that funcs contains all the funcs, objective, and constraints
         self.assertTrue(set(ALL_FUNCS).union(ALL_OBJCONS).issubset(funcs.keys()))
         # check that funcSens contains all the objective and constraints derivs
-        self.assertEquals(set(ALL_OBJCONS), set(funcsSens.keys()))
+        self.assertEqual(set(ALL_OBJCONS), set(funcsSens.keys()))
         # check that the derivs are wrt all DVs
         for val in funcsSens.values():
-            self.assertEquals(set(DVS), set(val.keys()))
+            self.assertEqual(set(DVS), set(val.keys()))
