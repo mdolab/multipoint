@@ -1,8 +1,7 @@
-__version__ = "1.3.2"
+__version__ = "1.4.0"
 
 
 from .multiPointSparse import multiPointSparse
 from .utils import createGroups
-from .utils import redirectIO
 
-__all__ = ["multiPointSparse", "createGroups", "redirectIO"]
+__all__ = ["multiPointSparse", "createGroups"]
