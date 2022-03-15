@@ -1,20 +1,21 @@
 from setuptools import setup
 import re
+import os
 
 __version__ = re.findall(
     r"""__version__ = ["']+([0-9\.]*)["']+""",
     open("multipoint/__init__.py").read(),
 )[0]
 
+this_directory = os.path.abspath(os.path.dirname(__file__))
+with open(os.path.join(this_directory, "README.md"), encoding="utf-8") as f:
+    long_description = f.read()
+
 setup(
     name="multipoint",
     version=__version__,
     description="Provides utilities to facilitates distributed multipoint optimization with the MACH framework.",
-    long_description="""Please see the [documentation](https://mdolab-multipoint.readthedocs-hosted.com) for API documentation.
-
-      To locally build the documentation, enter the `doc` folder and enter `make html` in terminal.
-      You can then view the built documentation in the `_build` folder.
-      """,
+    long_description=long_description,
     long_description_content_type="text/markdown",
     keywords="multi-point optimization",
     author="",
