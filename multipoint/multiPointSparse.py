@@ -13,6 +13,7 @@ from mpi4py import MPI
 from baseclasses.utils import Error
 from .utils import dkeys, skeys, _extractKeys, _complexifyFuncs
 
+
 # =============================================================================
 # MultiPoint Class
 # =============================================================================
@@ -244,7 +245,6 @@ class multiPointSparse:
         # its own split:
         for key in dkeys(self.pSet):
             if setFlags[key]:
-
                 self.pSet[key].gcomm = setComm
                 self.pSet[key].createCommunicators()
 
@@ -281,7 +281,6 @@ class multiPointSparse:
                 return iset
 
     def createDirectories(self, rootDir):
-
         """
         This function can be called only after all the procSets have
         been added. This can facilitate distinguishing output files
@@ -523,7 +522,6 @@ class multiPointSparse:
             self.consAsInputs.extend(cons)
 
     def obj(self, x):
-
         """
         This is a built-in objective function that is designed to be
         used directly as an objective function with pyOptSparse. The
