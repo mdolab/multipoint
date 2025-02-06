@@ -79,6 +79,7 @@ def createGroups(sizes, comm):
         cumGroups[igroup + 1] = cumGroups[igroup] + sizes[igroup]
 
     # Determine the member_key for each processor
+    member_key = None
     for igroup in range(nGroups):
         if comm.rank >= cumGroups[igroup] and comm.rank < cumGroups[igroup + 1]:
             member_key = igroup
