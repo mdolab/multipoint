@@ -232,6 +232,7 @@ class multiPointSparse:
         setFlags = {}
 
         # Determine the member_key for each processor
+        memberKey = None
         for key in dkeys(self.pSet):
             if self.gcomm.rank >= cumSets[self.pSet[key].setID] and self.gcomm.rank < cumSets[self.pSet[key].setID + 1]:
                 memberKey = self.pSet[key].setID
@@ -243,6 +244,9 @@ class multiPointSparse:
 
         # Set this new_comm into each pSet and let each procSet create
         # its own split:
+        comm = None
+        groupFlags = None
+        ptID = None
         for key in dkeys(self.pSet):
             if setFlags[key]:
                 self.pSet[key].gcomm = setComm
