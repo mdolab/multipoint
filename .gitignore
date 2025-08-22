@@ -1,0 +1,4 @@
+syntax: glob
+#ignore ruff and precommit config filrs
+ruff.toml
+.pre-commit-config.yaml
