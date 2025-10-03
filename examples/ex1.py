@@ -4,6 +4,7 @@ on a specific group of processors within a set.
 
 To run locally do: ``mpirun -np 10 --oversubscribe python ex1.py``.
 """
+
 # rst init (begin)
 # ==============================================================================
 # Import modules

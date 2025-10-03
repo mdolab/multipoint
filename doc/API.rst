@@ -7,4 +7,3 @@ API
 
 .. autoclass:: multiPointSparse
     :members:
-
