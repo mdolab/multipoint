@@ -3,7 +3,6 @@ doc/_build/
 
 # Testing output
 testflo_report.out
-tests/test_wimpress_out/
 
 # pre-commit and ruff config
 .pre-commit-config.yaml
