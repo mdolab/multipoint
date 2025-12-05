@@ -173,6 +173,57 @@ class multiPointSparse:
 
             self.pSet[setName] = procSet(setName, nMembers, memberSizes, len(self.pSet))
 
+    def modifyProcessorSet(self, setName, nMembers, memberSizes):
+        """
+        Allows modification of an existing processor set primarily to
+        change the number of members and member sizes for dynamic load
+        balancing.
+
+        Parameters
+        ----------
+        setName : str
+            Name of process set. This name must match one that already exists
+            within the class instance.
+
+        nMembers : int
+            Number of members in the set.
+
+        memberSizes : int, iteratable
+            Number of processors on each set. If an integer is supplied all
+            members use the same number of processors.
+            If a list or array is provided, a different number of processors
+            on each member can be specified.
+
+        Examples
+        --------
+        >>> MP = multiPointSparse.multiPoint(MPI.COMM_WORLD)
+        >>> MP.modifyProcessorSet('cruise', 4, 16)
+        >>> MP.modifyProcessorSet('maneuver', 4, [5, 3, 5, 7])
+
+        The ``cruise`` set now contains 4 processor groups, each of size 16.
+        and the ``maneuver`` set new contains 4 processor groups, of sizes 5, 3, 5, and 7.
+        """
+        # First make sure the user is modifying a processor set that already exists.
+        if setName not in self.pSet.keys():
+            raise Error(f"The processor set {setName} must already exist to be modified!")
+
+        # Do not allow the user to turn off a proc set dynamically
+        if nMembers == 0:
+            raise Error("Disabling a proc set via modifying its nMembers to 0 dynamically is currently unsupported.")
+        else:
+            nMembers = int(nMembers)
+            memberSizes = np.atleast_1d(memberSizes)
+            if len(memberSizes) == 1:
+                memberSizes = np.ones(nMembers) * memberSizes[0]
+            else:
+                if len(memberSizes) != nMembers:
+                    raise Error("The supplied memberSizes list is not the correct length.")
+            #Preserve critical info in the proc set such as the name, obj, and sense funcs which we want to preserve for optimization to continue
+            self.pSet[setName].nMembers = nMembers
+            self.pSet[setName].memberSizes = memberSizes
+            self.pSet[setName].nProc = np.sum(memberSizes)
+            #self.pSet[setName] = procSet(setName, nMembers, memberSizes, self.pSet[setName].setID)
+
     def createCommunicators(self):
         """
         Create the communicators after all the procSets have been
@@ -284,7 +335,7 @@ class multiPointSparse:
             if self.setFlags[iset]:
                 return iset
 
-    def createDirectories(self, rootDir):
+    def createDirectories(self, rootDir, getPathsOnly=False):
         """
         This function can be called only after all the procSets have
         been added. This can facilitate distinguishing output files
@@ -303,6 +354,10 @@ class multiPointSparse:
             entry has key defined by 'setName' and contains a list of size
             nMembers, each entry of which is the path to the created
             directory
+
+        getPathsOnly : bool
+            If this is True then the function will only return the paths
+            that it would have created but not acutally create the directories.
 
         Examples
         --------
@@ -328,7 +383,7 @@ class multiPointSparse:
                 dirName = os.path.join(rootDir, f"{self.pSet[key].setName}_{i}")
                 ptDirs[key].append(dirName)
 
-                if self.gcomm.rank == 0:  # Only global root proc makes
+                if (self.gcomm.rank == 0) and not getPathsOnly:  # Only global root proc makes
                     # directories
                     os.system(f"mkdir -p {dirName}")
 
