@@ -38,14 +38,14 @@ class multiPointSparse:
     #. Evaluate functions for cruise::
 
          def cruiseObj(x):
-             funcs = {} # Fill up with functions
+             funcs = {}  # Fill up with functions
              ...
              return funcs
 
     #. Evaluate functions for maneuver::
 
          def maneuverObj(x):
-             funcs = {} # Fill up with functions
+             funcs = {}  # Fill up with functions
              ...
              return funcs
 
@@ -59,34 +59,34 @@ class multiPointSparse:
     #. Evaluate function sensitivity for cruise::
 
         def maneuverSens(x, funcs):
-             funcSens = {}
-             ...
-             return funcSens
+            funcSens = {}
+            ...
+            return funcSens
 
     #. Function to compute addition functions::
 
 
         def objCon(funcs):
-             funcs['new_func'] = combination_of_funcs
-             ...
-             return funcs
+            funcs["new_func"] = combination_of_funcs
+            ...
+            return funcs
 
     >>> MP = multiPointSparse.multiPoint(MPI.COMM_WORLD)
-    >>> MP.addProcessorSet('cruise', 3, 32)
-    >>> MP.addProcessorSet('maneuver', 2, [10, 20])
+    >>> MP.addProcessorSet("cruise", 3, 32)
+    >>> MP.addProcessorSet("maneuver", 2, [10, 20])
     >>> # Possibly create directories
-    >>> ptDirs = MP.createDirectories('/home/user/output/')
+    >>> ptDirs = MP.createDirectories("/home/user/output/")
     >>> # Get the communicators and flags
     >>> comm, setComm, setFlags, groupFlags, ptID = MP.createCommunicators()
     >>> # Setup problems and python functions
     >>> ....
-    >>> MP.setProcSetObjFunc('cruise', cruiseObj)
-    >>> MP.setProcSetObjFunc('maneuver', maneuverObj)
-    >>> MP.setProcSetSensFunc('cruise', cruiseSens)
-    >>> MP.setProcSetSensFunc('maneuver', maneuverSens)
+    >>> MP.setProcSetObjFunc("cruise", cruiseObj)
+    >>> MP.setProcSetObjFunc("maneuver", maneuverObj)
+    >>> MP.setProcSetSensFunc("cruise", cruiseSens)
+    >>> MP.setProcSetSensFunc("maneuver", maneuverSens)
     >>> MP.setObjCon(objCon)
     >>> # Create optimization problem using MP.obj
-    >>> optProb = Optimization('opt', MP.obj)
+    >>> optProb = Optimization("opt", MP.obj)
     >>> # Setup optimization problem
     >>> # MP needs the optProb after everything is setup.
     >>> MP.setOptProb(optProb)
@@ -152,8 +152,8 @@ class multiPointSparse:
         Examples
         --------
         >>> MP = multiPointSparse.multiPoint(MPI.COMM_WORLD)
-        >>> MP.addProcessorSet('cruise', 3, 32)
-        >>> MP.addProcessorSet('maneuver', 2, [10, 20])
+        >>> MP.addProcessorSet("cruise", 3, 32)
+        >>> MP.addProcessorSet("maneuver", 2, [10, 20])
 
         The ``cruise`` set creates 3 processor groups, each of size 32.
         and the ``maneuver`` set creates 2 processor groups, of size 10 and 20.
@@ -200,14 +200,14 @@ class multiPointSparse:
         Examples
         --------
         >>> MP = multiPointSparse.multiPoint(MPI.COMM_WORLD)
-        >>> MP.addProcessorSet('cruise', 3, 32)
-        >>> MP.addProcessorSet('maneuver', 2, [10, 20])
+        >>> MP.addProcessorSet("cruise", 3, 32)
+        >>> MP.addProcessorSet("maneuver", 2, [10, 20])
         >>> comm, setComm, setFlags, groupFlags, ptID = MP.createCommunicators()
 
         The following will be true for all processors for the second member
         of the ``cruise`` procSet.
 
-        >>> setFlags['cruise'] and groupFlags[1] == True
+        >>> setFlags["cruise"] and groupFlags[1] == True
         """
 
         # First we determine the total number of required procs:
@@ -307,9 +307,9 @@ class multiPointSparse:
         Examples
         --------
         >>> MP = multiPointSparse.multiPoint(MPI.COMM_WORLD)
-        >>> MP.addProcessorSet('cruise', 3, 32)
-        >>> MP.addProcessorSet('maneuver', 2, [10, 20])
-        >>> ptDirs = MP.createDirectories('/home/user/output/')
+        >>> MP.addProcessorSet("cruise", 3, 32)
+        >>> MP.addProcessorSet("maneuver", 2, [10, 20])
+        >>> ptDirs = MP.createDirectories("/home/user/output/")
         >>> ptDirs
         {'cruise': ['/home/user/output/cruise_0',
                     '/home/user/output/cruise_1',

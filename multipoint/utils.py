@@ -36,17 +36,20 @@ def _extractKeys(funcs, keys):
 
 
 def dkeys(d):
-    """Utility function to return the keys of a dict in sorted order
+    """
+    Utility function to return the keys of a dict in sorted order
     so that the iteration order is guaranteed to be the same. Blame
-    python3 for being FUBAR'd."""
-
+    python3 for being FUBAR'd.
+    """
     return sorted(d.keys())
 
 
 def skeys(s):
-    """Utility function to return the items of a set in sorted order
+    """
+    Utility function to return the items of a set in sorted order
     so that the iteration order is guaranteed to be the same. Blame
-    python3 for being FUBAR'd."""
+    python3 for being FUBAR'd.
+    """
     return sorted(s)
 
 

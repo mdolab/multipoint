@@ -3,7 +3,7 @@
 [![Documentation Status](https://readthedocs.com/projects/mdolab-multipoint/badge/?version=latest)](https://mdolab-multipoint.readthedocs-hosted.com/en/latest/?badge=latest)
 [![codecov](https://codecov.io/gh/mdolab/multipoint/branch/master/graph/badge.svg?token=MNE2NTMLWD)](https://codecov.io/gh/mdolab/multipoint)
 
-Provides utilities to facilitates distributed multipoint optimization with the MACH framework. 
+Provides utilities to facilitates distributed multipoint optimization with the MACH framework.
 
 ## Documentation
 Please see the [documentation](https://mdolab-multipoint.readthedocs-hosted.com) for API documentation.
