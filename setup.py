@@ -28,8 +28,9 @@ setup(
     packages=[
         "multipoint",
     ],
+    python_requires=">=3.11",
     install_requires=[
-        "numpy>=1.21",
+        "numpy>=1.25",
         "mpi4py>=3.1.5",
         "mdolab-baseclasses>=1.2.4",
     ],
